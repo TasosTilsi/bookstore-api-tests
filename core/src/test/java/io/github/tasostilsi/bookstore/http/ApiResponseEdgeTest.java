@@ -24,13 +24,15 @@ public class ApiResponseEdgeTest {
         r.assertThat().hasStatus(200).hasEmptyBody();
         IllegalStateException onBodyAs = expectThrows(IllegalStateException.class, () -> r.bodyAs(Book.class));
         IllegalStateException onJson = expectThrows(IllegalStateException.class, () -> r.json());
+        IllegalStateException onBodyAsList = expectThrows(IllegalStateException.class, () -> r.bodyAsList(Book.class));
         assertThat(onBodyAs.getMessage(), containsString("no body"));
         assertThat(onJson.getMessage(), containsString("no body"));
+        assertThat(onBodyAsList.getMessage(), containsString("no body"));
     }
 
     @Test(description = "405 carries no Content-Type; asserting the status must not parse the body")
     public void absentContentTypeDoesNotParseBody() {
         Api.request("PATCH", ApiPaths.BOOKS)
-                .assertThat().hasStatus(405).hasNoContentType();
+                .assertThat().hasStatus(405).hasNoContentType().hasEmptyBody();
     }
 }

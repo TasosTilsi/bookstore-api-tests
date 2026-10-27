@@ -52,7 +52,9 @@ public final class ApiResponseAssert {
         return this;
     }
 
+    // shortcut: top-level keys only; JsonPath.get cannot tell a present null from an absent key.
     public ApiResponseAssert hasNullField(String jsonPath) {
+        assertThat(response.json().getMap("").containsKey(jsonPath), is(true));
         assertThat(response.json().get(jsonPath), nullValue());
         return this;
     }

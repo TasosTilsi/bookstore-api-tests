@@ -16,7 +16,6 @@ public final class BooksApi {
         return Api.request("GET", ApiPaths.book(id));
     }
 
-    @Step("POST /Books")
     public ApiResponse create(String body) {
         return create(body, "application/json; charset=utf-8");
     }

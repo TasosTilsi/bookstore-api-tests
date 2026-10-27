@@ -9,7 +9,7 @@ public final class ApiResponse {
 
     private final Response response;
 
-    public ApiResponse(Response response) {
+    private ApiResponse(Response response) {
         this.response = response;
     }
 
@@ -49,6 +49,7 @@ public final class ApiResponse {
     }
 
     public <T> List<T> bodyAsList(Class<T> elementType) {
+        requireBody();
         return response.jsonPath().getList("", elementType);
     }
 
