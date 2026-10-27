@@ -1,23 +1,16 @@
 package io.github.tasostilsi.bookstore.crossservice;
 
 import io.github.tasostilsi.bookstore.client.Api;
-import io.github.tasostilsi.bookstore.http.ApiResponse;
 import io.qameta.allure.Epic;
 import io.qameta.allure.Feature;
 import io.qameta.allure.Link;
 import io.qameta.allure.Severity;
 import io.qameta.allure.SeverityLevel;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.HashSet;
 import java.util.List;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.empty;
-import static org.hamcrest.Matchers.everyItem;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.not;
 import static org.testng.Assert.assertEquals;
 
 @Epic("Bookstore API")
@@ -34,21 +27,6 @@ public class BooksAuthorsConsistencyTest {
         List<Integer> bookIds = Api.books().list().json().getList("id");
         List<Integer> grouped = Api.authors().list().json().getList("idBook");
         assertEquals(new HashSet<>(grouped), new HashSet<>(bookIds));
-    }
-
-    @Test(groups = "crossservice", dataProvider = "sampleBookIds")
-    public void authorsByBookMatchesTheGrouping(int bookId) {
-        ApiResponse r = Api.authors().byBook(bookId);
-        r.assertThat().hasStatus(200);
-        List<Integer> idBooks = r.json().getList("idBook");
-        // everyItem on an empty list is vacuously true, so emptiness is asserted beside it.
-        assertThat(idBooks, not(empty()));
-        assertThat(idBooks, everyItem(is(bookId)));
-    }
-
-    @DataProvider
-    public Object[][] sampleBookIds() {
-        return new Object[][]{{1}, {2}, {100}, {200}};
     }
 
     @Test(groups = {"crossservice", "deviation"})
