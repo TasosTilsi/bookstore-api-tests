@@ -16,9 +16,9 @@ The suite covers:
 - The HTTP layer itself: empty response bodies and absent `Content-Type` headers (`core/src/test/java/io/github/tasostilsi/bookstore/http/ApiResponseEdgeTest.java`).
 - The generated models, using a measured wire payload (`core/src/test/java/io/github/tasostilsi/bookstore/model/ModelDeserialisationTest.java`).
 
-- Authors read, including the collection's regenerated-data invariants (`authors/src/test/java/io/github/tasostilsi/bookstore/authors/`).
+- Authors read and write, including the collection's regenerated-data invariants (`authors/src/test/java/io/github/tasostilsi/bookstore/authors/`).
 
-The remaining planned work covers Authors write and by-book tests, protocol tests, error-format tests and cross-service consistency tests. Those classes are not built yet. See section 9 for the current state.
+The remaining planned work covers Authors by-book tests, protocol tests, error-format tests and cross-service consistency tests. Those classes are not built yet. See section 9 for the current state.
 
 ### Current inventory
 
@@ -26,10 +26,10 @@ The remaining planned work covers Authors write and by-book tests, protocol test
 |---|---|---|
 | `core` tests | 3 cases in 2 classes (`ApiResponseEdgeTest`, `ModelDeserialisationTest`) | Adds the cross-service class (Task 14) |
 | `books` tests | 47 cases across 5 classes | Adds protocol and error-format classes (Tasks 12 and 13) |
-| `authors` tests | 8 cases in 1 class (`AuthorsReadTest`) | Two more classes (Tasks 10 and 11) |
-| Reactor total | 58 cases | 73 methods, 82 cases |
+| `authors` tests | 15 cases in 2 classes (`AuthorsReadTest`, `AuthorsWriteTest`) | One more class (Task 11) |
+| Reactor total | 65 cases | 74 methods, 83 cases |
 
-The target is 73 methods and 82 cases once every planned class exists. Today the committed tree carries 3 cases in `core`, 47 in `books` and 8 in `authors`, 58 in total.
+The target is 74 methods and 83 cases once every planned class exists. Today the committed tree carries 3 cases in `core`, 47 in `books` and 15 in `authors`, 65 in total.
 
 ## 2. The four-module reactor
 
@@ -52,7 +52,7 @@ What belongs in each module:
 |---|---|
 | `core` | Shared code: configuration, HTTP wrapper, fluent clients, generated models. Also the two infrastructure test classes that exist today. Planned: cross-service tests. |
 | `books` | Books test classes and their JSON fixtures. Planned: protocol and error-format test classes. |
-| `authors` | Authors test classes and their JSON fixtures. Planned. No test source exists yet. |
+| `authors` | Authors test classes and their JSON fixtures. |
 
 The dependency arrow points one way. `books` and `authors` depend on `core`; `core` has no dependency on either service module. That is what keeps the reactor acyclic and lets a cross-service test live in `core`, where both clients are already visible. The rule is visible in `core/pom.xml`, which declares no internal dependency.
 
@@ -62,7 +62,7 @@ The ADR on the four-module reactor records the alternatives: a single module, an
 
 ## 3. Client and assertion layering
 
-Every request goes through `io.github.tasostilsi.bookstore.client.Api`. No test calls RestAssured `given()` directly. This is checked by reading the test sources: `books/src/test` and `core/src/test` contain no `given()` call. `authors` has no test tree yet.
+Every request goes through `io.github.tasostilsi.bookstore.client.Api`. No test calls RestAssured `given()` directly. This is checked by reading the test sources: `books/src/test`, `authors/src/test` and `core/src/test` contain no `given()` call.
 
 ```mermaid
 flowchart TD
@@ -252,9 +252,9 @@ At the time of writing, the group filters select these case counts across the re
 
 | Group | Cases |
 |---|---|
-| `contract` | 34 |
-| `deviation` | 14 |
-| `validationGap` | 5 |
+| `contract` | 35 |
+| `deviation` | 19 |
+| `validationGap` | 7 |
 | `dynamicData` | 5 |
 | `crossservice` | 0 (the cross-service class is planned for Task 14) |
 
@@ -287,7 +287,7 @@ The ADR on no retries records the alternatives and the absent-`Content-Type` lim
 
 ## 9. Current state and what is planned
 
-The work was planned in 17 tasks. The first nine are implemented in the committed tree; the rest are planned and their files do not exist yet.
+The work was planned in 17 tasks. The first ten are implemented in the committed tree; the rest are planned and their files do not exist yet.
 
 | Task | Scope | State |
 |---|---|---|
@@ -300,7 +300,7 @@ The work was planned in 17 tasks. The first nine are implemented in the committe
 | 7 | Books delete tests | Built |
 | 8 | Books validation and path tests | Built |
 | 9 | Authors read tests, `AuthorsData` | Built |
-| 10 | Authors write tests | Planned |
+| 10 | Authors write tests | Built |
 | 11 | Authors by-book tests | Planned |
 | 12 | `books/.../protocol/ProtocolTest` | Planned |
 | 13 | `books/.../protocol/ErrorFormatTest` | Planned |
@@ -309,7 +309,7 @@ The work was planned in 17 tasks. The first nine are implemented in the committe
 | 16 | `README.md` | Planned |
 | 17 | Public repository and Pages settings | Planned |
 
-The `authors` module has one test class, `AuthorsReadTest`, and a `data/AuthorsData` fixture class. The `books` module has five test classes and a `BooksData` fixture class under `books/src/test/java/io/github/tasostilsi/bookstore/books/data/`. The `core` module has the configuration, HTTP, client and test classes listed in section 3, plus the generated models under `core/target/generated-sources/openapi`. There is no `README.md`, no `.github/` directory and no CI workflow in the repository.
+The `authors` module has two test classes, `AuthorsReadTest` and `AuthorsWriteTest`, and a `data/AuthorsData` fixture class. The `books` module has five test classes and a `BooksData` fixture class under `books/src/test/java/io/github/tasostilsi/bookstore/books/data/`. The `core` module has the configuration, HTTP, client and test classes listed in section 3, plus the generated models under `core/target/generated-sources/openapi`. There is no `README.md`, no `.github/` directory and no CI workflow in the repository.
 
 ## 10. Configuration and running
 

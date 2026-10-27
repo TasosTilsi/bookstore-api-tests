@@ -21,7 +21,7 @@ Keep the dependency arrow one way. Cross-service tests live in `core`, where bot
 - A module runs independently: `./mvnw -B -pl books -am verify` builds `core` first and runs only the `books` tests.
 - Adding a service costs one module POM, one client class, a block of constants in `ApiPaths` and a test package. It does not require editing a shared class list.
 - The `authors` module is currently a POM with no test sources. The module exists before its tests, which is visible in the reactor output as an empty JAR warning.
-- The reactor reports 50 cases today (3 in `core`, 47 in `books`) and targets 73 methods and 82 cases when the plan completes.
+- The reactor reports 65 cases today (3 in `core`, 47 in `books`, 15 in `authors`) and targets 74 methods and 83 cases when the plan completes.
 - The design and the plan both put the planned `ProtocolTest` and `ErrorFormatTest` under `books/src/test/java/io/github/tasostilsi/bookstore/books/protocol/`, not in `core`: every request they make is a Books request. `core` holds only the cross-service class, whose subject is the relationship between the two resources. No protocol test exists yet.
 
 ## Alternatives considered and why rejected
