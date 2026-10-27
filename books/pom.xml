@@ -19,6 +19,7 @@
       <groupId>io.github.tasostilsi</groupId>
       <artifactId>bookstore-api-core</artifactId>
       <version>${project.version}</version>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 </project>
