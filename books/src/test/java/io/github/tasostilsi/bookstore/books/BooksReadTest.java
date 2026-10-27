@@ -14,6 +14,7 @@ import org.testng.annotations.Test;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.IntStream;
@@ -24,6 +25,7 @@ import static io.github.tasostilsi.bookstore.books.data.BooksData.MAX_BOOK_ID;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -37,7 +39,8 @@ public class BooksReadTest {
     @Test(groups = "contract")
     public void listReturns200WithJsonContentType() {
         Api.books().list().assertThat().hasStatus(200)
-                .hasContentTypeContaining("application/json").hasContentTypeContaining("charset=utf-8");
+                .hasContentTypeContaining("application/json").hasContentTypeContaining("charset=utf-8")
+                .hasContentTypeContaining("v=1.0");
     }
 
     @Test(groups = "contract")
@@ -53,7 +56,11 @@ public class BooksReadTest {
 
     @Test(groups = "contract")
     public void listDeserialisesIntoGeneratedModels() {
-        assertThat(Api.books().list().bodyAsList(Book.class), hasSize(200));
+        List<Book> books = Api.books().list().bodyAsList(Book.class);
+        assertThat(books, hasSize(200));
+        // Size alone passes on 200 empty objects: the generated mapper ignores unknown fields.
+        assertThat(books.get(0).getId(), is(1));
+        assertNotNull(books.get(0).getPublishDate());
     }
 
     @Test(groups = "contract")
@@ -67,8 +74,8 @@ public class BooksReadTest {
     }
 
     @Test(groups = "contract")
-    public void getLastBookReturnsIt() {
-        Api.books().get(MAX_BOOK_ID).assertThat().hasStatus(200).hasField("id", 200);
+    public void getBookAtUpperBoundReturnsIt() {
+        Api.books().get(MAX_BOOK_ID).assertThat().hasStatus(200).hasField("id", MAX_BOOK_ID);
     }
 
     @Test(groups = "contract", dataProvider = "absentIds")
@@ -94,8 +101,10 @@ public class BooksReadTest {
 
     @Test(groups = "contract", description = "GET publishDate carries a UTC offset")
     public void publishDateIsParsableOffsetDateTime() {
-        String value = Api.books().get(1).json().getString("publishDate");
-        assertNotNull(OffsetDateTime.parse(value));
+        ApiResponse r = Api.books().get(1);
+        r.assertThat().hasStatus(200);
+        OffsetDateTime published = OffsetDateTime.parse(r.json().getString("publishDate"));
+        assertEquals(published.getOffset(), ZoneOffset.UTC);
     }
 
     @Test(groups = "dynamicData", dataProvider = "sampleIds")
@@ -104,7 +113,7 @@ public class BooksReadTest {
         ApiResponse r = Api.books().get(id);
         OffsetDateTime published = OffsetDateTime.parse(r.json().getString("publishDate"));
         OffsetDateTime served = OffsetDateTime.parse(r.header("Date"), DateTimeFormatter.RFC_1123_DATE_TIME);
-        assertThat(Math.abs(Duration.between(published, served.minusDays(id)).getSeconds()), lessThanOrEqualTo(5L));
+        assertThat(Duration.between(published, served.minusDays(id)).abs().toMillis(), lessThanOrEqualTo(5_000L));
     }
 
     @DataProvider
