@@ -36,4 +36,34 @@
       <artifactId>allure-rest-assured</artifactId>
     </dependency>
   </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.openapitools</groupId>
+        <artifactId>openapi-generator-maven-plugin</artifactId>
+        <version>${openapi-generator.version}</version>
+        <executions><execution><id>models</id><goals><goal>generate</goal></goals>
+          <configuration>
+            <inputSpec>${project.basedir}/src/main/resources/spec/openapi.json</inputSpec>
+            <generatorName>java</generatorName>
+            <library>native</library>
+            <output>${project.build.directory}/generated-sources/openapi</output>
+            <modelPackage>io.github.tasostilsi.bookstore.model</modelPackage>
+            <generateApis>false</generateApis>
+            <generateSupportingFiles>true</generateSupportingFiles>
+            <generateModelTests>false</generateModelTests>
+            <generateModelDocumentation>false</generateModelDocumentation>
+            <configOptions>
+              <openApiNullable>false</openApiNullable>
+              <dateLibrary>java8</dateLibrary>
+              <serializationLibrary>jackson</serializationLibrary>
+              <useJakartaEe>true</useJakartaEe>
+              <hideGenerationTimestamp>true</hideGenerationTimestamp>
+            </configOptions>
+          </configuration>
+        </execution></executions>
+      </plugin>
+    </plugins>
+  </build>
 </project>
