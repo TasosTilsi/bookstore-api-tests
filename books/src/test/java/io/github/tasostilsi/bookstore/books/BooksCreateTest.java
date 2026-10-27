@@ -28,7 +28,7 @@ public class BooksCreateTest {
     @Test(groups = "deviation")
     @Feature("Contract deviations")
     public void createEchoesPayloadWith200AndNoLocation() {
-        Api.books().create(FULL_BOOK).assertThat().hasStatus(200).hasNoHeader("Location")
+        Api.books().create(FULL_BOOK).assertThat().hasStatus(200).isVersionedJson().hasNoHeader("Location")
                 .hasField("id", 5000).hasField("title", "Book 5000").hasField("pageCount", 10)
                 .hasField("description", "d").hasField("excerpt", "e")
                 .hasField("publishDate", "2026-01-01T00:00:00Z");
@@ -45,7 +45,7 @@ public class BooksCreateTest {
     @Feature("Contract deviations")
     @Feature("Validation gaps")
     public void createWithEmptyObjectReturnsDefaults() {
-        Api.books().create(EMPTY_OBJECT).assertThat().hasStatus(200)
+        Api.books().create(EMPTY_OBJECT).assertThat().hasStatus(200).isVersionedJson()
                 .hasField("id", 0).hasNullField("title").hasField("pageCount", 0)
                 .hasNullField("description").hasNullField("excerpt")
                 .hasField("publishDate", ZERO_DATE_DEFAULT);
@@ -55,18 +55,21 @@ public class BooksCreateTest {
     @Feature("Contract deviations")
     @Feature("Validation gaps")
     public void createWithoutIdReturnsIdZero() {
-        Api.books().create(NO_ID_BOOK).assertThat().hasStatus(200).hasField("id", 0)
+        Api.books().create(NO_ID_BOOK).assertThat().hasStatus(200).isVersionedJson().hasField("id", 0)
                 .hasField("title", "no-id");
     }
 
     @Test(groups = "contract")
     public void createWithZeroLengthBodyReturns400() {
-        Api.books().create(EMPTY_BODY).assertThat().hasStatus(400).isProblemJson();
+        // An empty body fails before model binding, so the error map is keyed on the empty string.
+        Api.books().create(EMPTY_BODY).assertThat().hasStatus(400).isProblemJson()
+                .hasContentTypeNotContaining("v=1.0").hasNonNullField("errors['']");
     }
 
     @Test(groups = "contract")
     public void createWithMalformedJsonReturns400() {
-        Api.books().create(MALFORMED_BODY).assertThat().hasStatus(400).isProblemJson();
+        Api.books().create(MALFORMED_BODY).assertThat().hasStatus(400).isProblemJson()
+                .hasNonNullField("errors['$.title']");
     }
 
     @Test(groups = "contract")
@@ -77,13 +80,13 @@ public class BooksCreateTest {
     @Test(groups = "contract")
     public void createWithWrongFieldTypeReturns400() {
         Api.books().create("{\"title\":\"t\",\"pageCount\":\"many\"}").assertThat()
-                .hasStatus(400).isProblemJson().hasNonNullField("errors");
+                .hasStatus(400).isProblemJson().hasNonNullField("errors['$.pageCount']");
     }
 
     @Test(groups = "contract")
     public void createWithUnparseableDateReturns400() {
         Api.books().create("{\"title\":\"t\",\"publishDate\":\"yesterday\"}").assertThat()
-                .hasStatus(400).isProblemJson().hasNonNullField("errors");
+                .hasStatus(400).isProblemJson().hasNonNullField("errors['$.publishDate']");
     }
 
     @Test(groups = "contract")
@@ -95,7 +98,7 @@ public class BooksCreateTest {
     @Feature("Contract deviations")
     @Feature("Validation gaps")
     public void createSilentlyDropsUnknownFields() {
-        Api.books().create(UNKNOWN_FIELD_BOOK).assertThat().hasStatus(200).hasNoField("nonsense")
+        Api.books().create(UNKNOWN_FIELD_BOOK).assertThat().hasStatus(200).isVersionedJson().hasNoField("nonsense")
                 .hasField("id", 5000);
     }
 
@@ -103,25 +106,25 @@ public class BooksCreateTest {
     @Feature("Validation gaps")
     public void createAcceptsNegativePageCount() {
         Api.books().create("{\"title\":\"t\",\"pageCount\":-5}").assertThat()
-                .hasStatus(200).hasField("pageCount", -5);
+                .hasStatus(200).isVersionedJson().hasField("pageCount", -5);
     }
 
     @Test(groups = "validationGap")
     @Feature("Validation gaps")
     public void createAcceptsVeryLongTitle() {
         Api.books().create("{\"title\":\"" + BooksData.longTitle() + "\"}").assertThat()
-                .hasStatus(200).hasField("title", BooksData.longTitle());
+                .hasStatus(200).isVersionedJson().hasField("title", BooksData.longTitle());
     }
 
     @Test(groups = "contract")
     public void createAcceptsUnicodeTitle() {
         Api.books().create("{\"title\":\"" + UNICODE_TITLE + "\"}").assertThat()
-                .hasStatus(200).hasField("title", UNICODE_TITLE);
+                .hasStatus(200).isVersionedJson().hasField("title", UNICODE_TITLE);
     }
 
     @Test(groups = "contract")
     public void createRejectsPageCountAboveInt32() {
         Api.books().create("{\"title\":\"t\",\"pageCount\":2147483648}").assertThat()
-                .hasStatus(400).isProblemJson();
+                .hasStatus(400).isProblemJson().hasNonNullField("errors['$.pageCount']");
     }
 }

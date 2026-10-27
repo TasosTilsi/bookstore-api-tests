@@ -23,7 +23,7 @@ public class BooksUpdateTest {
     @Test(groups = "contract")
     public void updateExistingBookEchoesPayload() {
         Api.books().update(1, "{\"id\":1,\"title\":\"changed\",\"pageCount\":42}").assertThat()
-                .hasStatus(200).hasField("id", 1).hasField("title", "changed").hasField("pageCount", 42)
+                .hasStatus(200).isVersionedJson().hasField("id", 1).hasField("title", "changed").hasField("pageCount", 42)
                 // A merge with book 1 would also echo those three fields; these three separate the two.
                 .hasNullField("description").hasNullField("excerpt")
                 .hasField("publishDate", ZERO_DATE_DEFAULT);
@@ -34,13 +34,13 @@ public class BooksUpdateTest {
     @Feature("Contract deviations")
     public void updateSucceedsForAbsentId() {
         Api.books().update(99999, "{\"title\":\"ghost\"}").assertThat()
-                .hasStatus(200).hasField("id", 0).hasField("title", "ghost");
+                .hasStatus(200).isVersionedJson().hasField("id", 0).hasField("title", "ghost");
     }
 
     @Test(groups = "contract")
     public void updateWithZeroLengthBodyReturns400() {
         Api.books().update(1, EMPTY_BODY).assertThat().hasStatus(400).isProblemJson()
-                .hasContentTypeNotContaining("v=1.0").hasNonNullField("errors");
+                .hasContentTypeNotContaining("v=1.0").hasNonNullField("errors['']");
     }
 
     @Test(groups = "deviation")
@@ -49,7 +49,7 @@ public class BooksUpdateTest {
             + " publishDate is read through JsonPath because \"0001-01-01T00:00:00\" has no offset,"
             + " so the generated OffsetDateTime cannot parse it")
     public void updateWithEmptyObjectResetsFields() {
-        Api.books().update(1, EMPTY_OBJECT).assertThat().hasStatus(200)
+        Api.books().update(1, EMPTY_OBJECT).assertThat().hasStatus(200).isVersionedJson()
                 .hasField("id", 0).hasNullField("title").hasField("pageCount", 0)
                 .hasField("publishDate", ZERO_DATE_DEFAULT);
     }
@@ -58,7 +58,7 @@ public class BooksUpdateTest {
     @Feature("Contract deviations")
     public void updateNullsOmittedFields() {
         Api.books().update(1, "{\"id\":1,\"title\":\"partial\",\"pageCount\":9}").assertThat()
-                .hasStatus(200).hasField("id", 1).hasField("title", "partial").hasField("pageCount", 9)
+                .hasStatus(200).isVersionedJson().hasField("id", 1).hasField("title", "partial").hasField("pageCount", 9)
                 .hasNullField("description").hasNullField("excerpt")
                 .hasField("publishDate", ZERO_DATE_DEFAULT);
     }
@@ -67,12 +67,12 @@ public class BooksUpdateTest {
     @Feature("Contract deviations")
     public void updateUsesBodyIdNotPathId() {
         Api.books().update(1, "{\"id\":7,\"title\":\"override\"}").assertThat()
-                .hasStatus(200).hasField("id", 7);
+                .hasStatus(200).isVersionedJson().hasField("id", 7);
     }
 
     @Test(groups = "contract")
     public void updateWithMalformedBodyReturns400() {
         Api.books().update(1, MALFORMED_BODY).assertThat().hasStatus(400).isProblemJson()
-                .hasContentTypeNotContaining("v=1.0").hasNonNullField("errors");
+                .hasContentTypeNotContaining("v=1.0").hasNonNullField("errors['$.title']");
     }
 }

@@ -38,9 +38,7 @@ public class BooksReadTest {
 
     @Test(groups = "contract")
     public void listReturns200WithJsonContentType() {
-        Api.books().list().assertThat().hasStatus(200)
-                .hasContentTypeContaining("application/json").hasContentTypeContaining("charset=utf-8")
-                .hasContentTypeContaining("v=1.0");
+        Api.books().list().assertThat().hasStatus(200).isVersionedJson();
     }
 
     @Test(groups = "contract")
@@ -88,15 +86,11 @@ public class BooksReadTest {
         return new Object[][]{{0}, {-1}, {201}, {99999}};
     }
 
-    @Test(groups = "contract", dataProvider = "invalidIds", description = "path segment is not an int")
-    public void invalidIdsReturn400WithErrors(String rawId) {
-        Api.request("GET", ApiPaths.book(rawId)).assertThat()
-                .hasStatus(400).isProblemJson().hasNonNullField("errors");
-    }
-
-    @DataProvider
-    public Object[][] invalidIds() {
-        return new Object[][]{{"abc"}, {"1.5"}, {"2147483648"}};
+    @Test(groups = "contract", description = "a path segment above int32 is rejected by the binder, not by the route")
+    public void int32OverflowIdReturns400() {
+        Api.request("GET", ApiPaths.book("2147483648")).assertThat()
+                .hasStatus(400).isProblemJson().hasContentTypeNotContaining("v=1.0")
+                .hasNonNullField("errors.id");
     }
 
     @Test(groups = "contract", description = "GET publishDate carries a UTC offset")

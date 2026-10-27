@@ -55,6 +55,6 @@ public class BooksDeleteTest {
     @Test(groups = "contract")
     public void deleteWithNonIntegerIdReturns400() {
         Api.request("DELETE", ApiPaths.book("abc")).assertThat().hasStatus(400).isProblemJson()
-                .hasContentTypeNotContaining("v=1.0").hasNonNullField("errors");
+                .hasContentTypeNotContaining("v=1.0").hasNonNullField("errors.id");
     }
 }

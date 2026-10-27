@@ -42,6 +42,16 @@ public final class ApiResponseAssert {
         return this;
     }
 
+    /**
+     * Measured on every 200 that returns a representation: GET, POST and PUT all carry
+     * {@code application/json; charset=utf-8; v=1.0}. Problem responses carry no version parameter.
+     */
+    public ApiResponseAssert isVersionedJson() {
+        hasContentTypeContaining("application/json").hasContentTypeContaining("charset=utf-8")
+                .hasContentTypeContaining("v=1.0");
+        return this;
+    }
+
     public ApiResponseAssert hasNoContentType() {
         assertThat(response.contentType(), nullValue());
         return this;
@@ -80,7 +90,8 @@ public final class ApiResponseAssert {
     }
 
     public ApiResponseAssert isProblemJson() {
-        // Measured on every problem response: charset is always utf-8 and v=1.0 never appears.
+        // Both measured on every problem response. Absence of the `v=1.0` parameter is the callers'
+        // assertion, because it is a property of the versioning convention, not of the envelope.
         hasContentTypeContaining("application/problem+json").hasContentTypeContaining("charset=utf-8");
         JsonPath json = response.json();
         assertThat(json.get("type"), notNullValue());
