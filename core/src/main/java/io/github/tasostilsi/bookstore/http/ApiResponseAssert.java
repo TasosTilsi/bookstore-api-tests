@@ -80,7 +80,8 @@ public final class ApiResponseAssert {
     }
 
     public ApiResponseAssert isProblemJson() {
-        hasContentTypeContaining("application/problem+json");
+        // Measured on every problem response: charset is always utf-8 and v=1.0 never appears.
+        hasContentTypeContaining("application/problem+json").hasContentTypeContaining("charset=utf-8");
         JsonPath json = response.json();
         assertThat(json.get("type"), notNullValue());
         assertThat(json.get("title"), notNullValue());
