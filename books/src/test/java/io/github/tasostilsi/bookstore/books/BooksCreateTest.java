@@ -62,36 +62,36 @@ public class BooksCreateTest {
     @Test(groups = "contract")
     public void createWithZeroLengthBodyReturns400() {
         // An empty body fails before model binding, so the error map is keyed on the empty string.
-        Api.books().create(EMPTY_BODY).assertThat().hasStatus(400).isProblemJson()
-                .hasContentTypeNotContaining("v=1.0").hasNonNullField("errors['']");
+        Api.books().create(EMPTY_BODY).assertThat().hasStatus(400).isProblemJsonWithoutVersion()
+                .hasNonNullField("errors['']");
     }
 
     @Test(groups = "contract")
     public void createWithMalformedJsonReturns400() {
-        Api.books().create(MALFORMED_BODY).assertThat().hasStatus(400).isProblemJson()
+        Api.books().create(MALFORMED_BODY).assertThat().hasStatus(400).isProblemJsonWithoutVersion()
                 .hasNonNullField("errors['$.title']");
     }
 
     @Test(groups = "contract")
     public void createWithArrayBodyReturns400() {
-        Api.books().create(ARRAY_BODY).assertThat().hasStatus(400).isProblemJson();
+        Api.books().create(ARRAY_BODY).assertThat().hasStatus(400).isProblemJsonWithoutVersion();
     }
 
     @Test(groups = "contract")
     public void createWithWrongFieldTypeReturns400() {
         Api.books().create("{\"title\":\"t\",\"pageCount\":\"many\"}").assertThat()
-                .hasStatus(400).isProblemJson().hasNonNullField("errors['$.pageCount']");
+                .hasStatus(400).isProblemJsonWithoutVersion().hasNonNullField("errors['$.pageCount']");
     }
 
     @Test(groups = "contract")
     public void createWithUnparseableDateReturns400() {
         Api.books().create("{\"title\":\"t\",\"publishDate\":\"yesterday\"}").assertThat()
-                .hasStatus(400).isProblemJson().hasNonNullField("errors['$.publishDate']");
+                .hasStatus(400).isProblemJsonWithoutVersion().hasNonNullField("errors['$.publishDate']");
     }
 
     @Test(groups = "contract")
     public void createWithPlainTextContentTypeReturns415() {
-        Api.books().create(FULL_BOOK, "text/plain").assertThat().hasStatus(415).isProblemJson();
+        Api.books().create(FULL_BOOK, "text/plain").assertThat().hasStatus(415).isProblemJsonWithoutVersion();
     }
 
     @Test(groups = {"deviation", "validationGap"})
@@ -125,6 +125,6 @@ public class BooksCreateTest {
     @Test(groups = "contract")
     public void createRejectsPageCountAboveInt32() {
         Api.books().create("{\"title\":\"t\",\"pageCount\":2147483648}").assertThat()
-                .hasStatus(400).isProblemJson().hasNonNullField("errors['$.pageCount']");
+                .hasStatus(400).isProblemJsonWithoutVersion().hasNonNullField("errors['$.pageCount']");
     }
 }

@@ -39,7 +39,9 @@ public class AuthorsByBookTest {
 
     @DataProvider
     public Object[][] bookIds() {
-        return new Object[][]{{1}, {100}, {200}};
+        // Id 2 is here rather than in the cross-service class: a by-book call exercises Authors alone,
+        // so it belongs to this module even when the class that used to make it also knew about Books.
+        return new Object[][]{{1}, {2}, {100}, {200}};
     }
 
     @Test(groups = "contract", dataProvider = "outOfRangeBookIds")
@@ -55,14 +57,14 @@ public class AuthorsByBookTest {
     @Test(groups = "contract")
     public void nonIntegerBookIdReturns400() {
         Api.request("GET", ApiPaths.authorsByBook("abc")).assertThat()
-                .hasStatus(400).isProblemJson().hasContentTypeNotContaining("v=1.0")
+                .hasStatus(400).isProblemJsonWithoutVersion()
                 .hasNonNullField("errors.idBook");
     }
 
     @Test(groups = "contract")
     public void bookIdAboveInt32Returns400() {
         Api.request("GET", ApiPaths.authorsByBook("2147483648")).assertThat()
-                .hasStatus(400).isProblemJson().hasContentTypeNotContaining("v=1.0")
+                .hasStatus(400).isProblemJsonWithoutVersion()
                 .hasNonNullField("errors.idBook");
     }
 }

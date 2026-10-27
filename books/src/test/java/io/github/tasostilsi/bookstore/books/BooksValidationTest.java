@@ -19,14 +19,14 @@ public class BooksValidationTest {
     @Test(groups = "contract")
     public void nonIntegerPathIdReturns400WithErrors() {
         Api.request("GET", ApiPaths.book("abc")).assertThat()
-                .hasStatus(400).isProblemJson().hasContentTypeNotContaining("v=1.0")
+                .hasStatus(400).isProblemJsonWithoutVersion()
                 .hasNonNullField("errors.id");
     }
 
     @Test(groups = "contract")
     public void decimalPathIdReturns400() {
         Api.request("GET", ApiPaths.book("1.5")).assertThat()
-                .hasStatus(400).isProblemJson().hasContentTypeNotContaining("v=1.0")
+                .hasStatus(400).isProblemJsonWithoutVersion()
                 .hasNonNullField("errors.id");
     }
 

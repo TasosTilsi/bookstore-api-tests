@@ -100,4 +100,13 @@ public final class ApiResponseAssert {
         assertThat(json.getInt("status"), is(response.status()));
         return this;
     }
+
+    /**
+     * Every 400 and 415 measured carries problem+json with no version parameter, where the 404 for a
+     * missing resource carries {@code v=1.0}. Matched on {@code v=} rather than {@code v=1.0}, so a
+     * future version cannot satisfy a caller that claims no version is sent.
+     */
+    public ApiResponseAssert isProblemJsonWithoutVersion() {
+        return isProblemJson().hasContentTypeNotContaining("v=");
+    }
 }

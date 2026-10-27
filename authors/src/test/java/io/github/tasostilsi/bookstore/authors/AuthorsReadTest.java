@@ -88,7 +88,7 @@ public class AuthorsReadTest {
     @Test(groups = "contract")
     public void nonIntegerIdReturns400() {
         Api.request("GET", ApiPaths.author("abc")).assertThat()
-                .hasStatus(400).isProblemJson().hasContentTypeNotContaining("v=1.0")
+                .hasStatus(400).isProblemJsonWithoutVersion()
                 .hasNonNullField("errors.id");
     }
 }

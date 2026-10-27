@@ -11,6 +11,12 @@ import org.testng.annotations.Test;
 import static io.github.tasostilsi.bookstore.books.data.BooksData.EMPTY_BODY;
 import static io.github.tasostilsi.bookstore.books.data.BooksData.FULL_BOOK;
 
+/**
+ * Canonical home of the error envelope. Its requests repeat other classes on purpose: the other
+ * classes assert behaviour, this one asserts the envelope's measured content, meaning the version
+ * parameter, the exact {@code type} URI and the exact {@code title}, which the shared helpers
+ * deliberately leave to callers.
+ */
 @Epic("Bookstore API")
 @Feature("Error format")
 @Severity(SeverityLevel.NORMAL)
@@ -26,16 +32,13 @@ public class ErrorFormatTest {
 
     @Test(groups = "contract")
     public void validationErrorBodyIsProblemJsonWithoutVersion() {
-        Api.books().update(1, EMPTY_BODY).assertThat().hasStatus(400).isProblemJson()
-                // "v=" rather than "v=1.0": the assertion is that no version is advertised at all,
-                // which a future v=2.0 would satisfy where the narrower matcher would not.
-                .hasContentTypeNotContaining("v=");
+        Api.books().update(1, EMPTY_BODY).assertThat().hasStatus(400).isProblemJsonWithoutVersion();
     }
 
     @Test(groups = "contract")
     public void unsupportedMediaTypeBodyIsProblemJsonWithoutVersion() {
-        Api.books().create(FULL_BOOK, "text/plain").assertThat().hasStatus(415).isProblemJson()
-                .hasContentTypeNotContaining("v=")
+        Api.books().create(FULL_BOOK, "text/plain").assertThat().hasStatus(415)
+                .isProblemJsonWithoutVersion()
                 .hasField("title", "Unsupported Media Type");
     }
 }

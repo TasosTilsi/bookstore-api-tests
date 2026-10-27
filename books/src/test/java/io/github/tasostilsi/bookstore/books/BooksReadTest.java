@@ -89,7 +89,7 @@ public class BooksReadTest {
     @Test(groups = "contract", description = "a path segment above int32 is rejected by the binder, not by the route")
     public void int32OverflowIdReturns400() {
         Api.request("GET", ApiPaths.book("2147483648")).assertThat()
-                .hasStatus(400).isProblemJson().hasContentTypeNotContaining("v=1.0")
+                .hasStatus(400).isProblemJsonWithoutVersion()
                 .hasNonNullField("errors.id");
     }
 

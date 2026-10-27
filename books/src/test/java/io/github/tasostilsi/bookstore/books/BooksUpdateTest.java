@@ -39,8 +39,8 @@ public class BooksUpdateTest {
 
     @Test(groups = "contract")
     public void updateWithZeroLengthBodyReturns400() {
-        Api.books().update(1, EMPTY_BODY).assertThat().hasStatus(400).isProblemJson()
-                .hasContentTypeNotContaining("v=1.0").hasNonNullField("errors['']");
+        Api.books().update(1, EMPTY_BODY).assertThat().hasStatus(400).isProblemJsonWithoutVersion()
+                .hasNonNullField("errors['']");
     }
 
     @Test(groups = "deviation")
@@ -72,7 +72,7 @@ public class BooksUpdateTest {
 
     @Test(groups = "contract")
     public void updateWithMalformedBodyReturns400() {
-        Api.books().update(1, MALFORMED_BODY).assertThat().hasStatus(400).isProblemJson()
-                .hasContentTypeNotContaining("v=1.0").hasNonNullField("errors['$.title']");
+        Api.books().update(1, MALFORMED_BODY).assertThat().hasStatus(400).isProblemJsonWithoutVersion()
+                .hasNonNullField("errors['$.title']");
     }
 }
