@@ -25,7 +25,7 @@ Do not add a generic request builder or a stateful fluent builder.
 
 - No client object holds state between tests. A test cannot leak a header, a body or a base path into the next test through a shared builder.
 - The fluent call reads as the operation it performs, and the report step carries the argument values.
-- Adding a service area means adding a client class, a block in `ApiPaths`, a module and a test package. It does not mean editing `Api`.
+- Adding a service area means adding a client class, a block in `ApiPaths`, a module, a test package, and one factory method on `Api`. The factory is a two-line delegate; the cost the design avoids is a shared request builder, not a two-method list.
 - The raw escape hatch keeps host-level probes possible. Those probes do not get a named `@Step`, because `Api.request` itself is not annotated. Their report entry contains only the `HTTP exchange` step from `AllureRestAssured`.
 - The `create(String, String)` overload cannot express a request with no `Content-Type` header. RestAssured always emits one. ADR-0011 records that limit; the 415 contract is pinned with `text/plain`.
 - The `books` and `authors` modules do not import RestAssured types. They see only `Api`, the two clients and `ApiResponse`.

@@ -23,7 +23,7 @@ Use five TestNG groups:
 
 The primary group is decided by comparing the observed response with the applicable convention. Agreement is `contract`; contradiction is `deviation`; a contradiction about accepting or rejecting input is also `validationGap`. `dynamicData` and `crossservice` are added independently.
 
-Every method declares its groups explicitly. Every class carries `@Epic("Bookstore API")`, a class-level `@Feature` and a class-level `@Severity`. Service-area classes carry one `@Link` to the Swagger document; the `core` infrastructure classes carry none. A method in `deviation`, `validationGap`, `dynamicData` or `crossservice` carries the matching method-level `@Feature` override. `@Feature` is repeatable, so a method in two groups carries both.
+Every method declares its groups explicitly. Every class carries `@Epic("Bookstore API")`, a class-level `@Feature` and a class-level `@Severity`. Service-area classes carry one `@Link` to the Swagger document; the `core` infrastructure classes carry none. A method in `deviation`, `validationGap`, `dynamicData` or `crossservice` carries the matching method-level `@Feature` override unless the class-level feature already names that group, in which case the override would duplicate it. `@Feature` is repeatable, so a method in two groups carries both.
 
 There is no `@Story` and no `testng.xml`.
 

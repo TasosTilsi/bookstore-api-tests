@@ -29,7 +29,7 @@ The rule behind all of this: every assertion must hold for every response the se
 
 - The Authors tests remain stable while the population is regenerated. The invariants held on every probe.
 - The suite cannot detect a change that keeps the invariants but changes the content, such as a different author name in an existing group. That is a deliberate limit; the alternative is a flaky test.
-- The planned `AuthorsReadTest`, `AuthorsWriteTest` and `AuthorsByBookTest` apply this rule (Tasks 9 to 11). The cross-service test applies it to the book-id versus group-id set (Task 14). The `authors` module currently has no test sources.
+- `AuthorsReadTest`, `AuthorsWriteTest` and `AuthorsByBookTest` apply this rule. The cross-service test applies it to the book-id versus group-id set.
 - A write test still uses a high id such as 7000 or 9001 for the read-back `404`. The id is far above any possible generated id, so the `404` is unambiguous even though the population is random.
 - There is no cleanup step. Nothing is stored, so there is nothing to clean.
 

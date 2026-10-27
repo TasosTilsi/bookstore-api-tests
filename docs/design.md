@@ -24,12 +24,14 @@ The remaining planned work is infrastructure rather than coverage: the CI workfl
 
 | Area | Committed today | Plan target |
 |---|---|---|
-| `core` tests | 9 cases in 3 classes (`ApiResponseEdgeTest`, `ModelDeserialisationTest`, `BooksAuthorsConsistencyTest`) | Complete |
+| `core` tests | 5 cases in 3 classes (`ApiResponseEdgeTest`, `ModelDeserialisationTest`, `BooksAuthorsConsistencyTest`) | Complete |
 | `books` tests | 54 cases across 7 classes | Complete |
-| `authors` tests | 23 cases in 3 classes (`AuthorsReadTest`, `AuthorsWriteTest`, `AuthorsByBookTest`) | Complete |
-| Reactor total | 73 methods, 86 cases | 73 methods, 86 cases |
+| `authors` tests | 24 cases in 3 classes (`AuthorsReadTest`, `AuthorsWriteTest`, `AuthorsByBookTest`) | Complete |
+| Reactor total | 72 methods, 83 cases | 72 methods, 83 cases |
 
-The plan targeted 74 methods and 87 cases. The difference is one method: `ErrorFormatTest` shipped three cases rather than four, because its fourth asserted the same request and the same two absences as `BooksDeleteTest.deleteExistingReturns200WithEmptyBody` and added nothing.
+The plan targeted 74 methods and 87 cases. Two methods were cut at review, both because they asserted less than their names claimed. `ErrorFormatTest` lost a fourth case that re-issued `BooksDeleteTest.deleteExistingReturns200WithEmptyBody` and asserted the same two absences. `BooksAuthorsConsistencyTest` lost a by-book case that called the Authors client only, which contradicts the definition of the `crossservice` group; its one extra provider row moved to `AuthorsByBookTest`.
+
+The class-level policy that replaces ad-hoc duplication calls: `ErrorFormatTest` is the canonical home of the error envelope and re-issues requests other classes already make, because it asserts envelope content (the version parameter, the exact `type` URI, the exact `title`) that the shared helpers leave to callers. Every other class asserts behaviour. A case is only cut when it asserts nothing the suite does not already assert.
 
 ## 2. The four-module reactor
 
@@ -100,7 +102,7 @@ The response path:
 
 `ApiConfig` is the configuration boundary (`core/src/main/java/io/github/tasostilsi/bookstore/config/ApiConfig.java`). `baseUri()` reads the `api.baseUri` system property, then the `API_BASE_URI` environment variable, then the default. The timeout and logging settings read only system properties.
 
-The `Api.request` overloads are the escape hatch for requests that do not fit a resource terminal: unsupported methods, path-binding probes and custom headers. `request(String, String)` sends a bare request, `request(String, String, Map)` adds headers, and `request(String, String, String, String, Map)` adds a body and its `Content-Type`. A raw request carries no client `@Step`, so its Allure entry contains only the `HTTP exchange` step from `AllureRestAssured`. That is why the protocol tests planned for Task 12 use `Api.request` and accept the shorter report entry.
+The `Api.request` overloads are the escape hatch for requests that do not fit a resource terminal: unsupported methods, path-binding probes and custom headers. `request(String, String)` sends a bare request, `request(String, String, Map)` adds headers, and `request(String, String, String, String, Map)` adds a body and its `Content-Type`. A raw request carries no client `@Step`, so its Allure entry contains only the `HTTP exchange` step from `AllureRestAssured`. That is why the protocol tests use `Api.request` and accept the shorter report entry.
 
 The ADRs on the fluent client and on the response wrapper record why there is no generic request builder and no raw RestAssured assertions in tests.
 
@@ -240,11 +242,11 @@ Examples from the committed code:
 - `createAcceptsNegativePageCount` is `validationGap`: a negative page count is accepted with `200`.
 - `createWithEmptyObjectReturnsDefaults` is both `deviation` and `validationGap`: an empty object is accepted and reset to defaults.
 - `publishDateIsNowMinusNDays` is `dynamicData`: it compares the response `publishDate` with the response `Date` header.
-- The planned `BooksAuthorsConsistencyTest` methods will be `crossservice`, and `statelessnessSpansBothResources` will also be `deviation`.
+- The `BooksAuthorsConsistencyTest` methods are `crossservice`, and `statelessnessSpansBothResources` is also `deviation`. Two classifications sit at the edge and stay where they are: `updateWithEmptyObjectResetsFields` is `deviation` alone where its create equivalent is also `validationGap`, because `PUT` replaces the resource and an empty object replacing it is not a rejected field; and `listIdsAreContiguousAscendingFromOne` is `dynamicData` although it asserts an internal invariant that would survive a change to the population.
 
-Class-level labels are separate from the selection groups. Every class carries `@Epic("Bookstore API")`, a class-level `@Feature` naming the area and a class-level `@Severity`. `@Link` points at the Swagger document on the service-area classes (`BooksReadTest`, `BooksCreateTest`, `BooksUpdateTest`, `BooksDeleteTest`, `BooksValidationTest`). The `core` infrastructure classes carry no link, because they assert the client and the generated types rather than a documented endpoint.
+Class-level labels are separate from the selection groups. Every class carries `@Epic("Bookstore API")`, a class-level `@Feature` naming the area and a class-level `@Severity`. A method-level `@Feature` override is added only for a group the class-level feature does not already name, so the cross-service class needs none for `crossservice` and one for `deviation`. `@Link` points at the Swagger document on the service-area classes (`BooksReadTest`, `BooksCreateTest`, `BooksUpdateTest`, `BooksDeleteTest`, `BooksValidationTest`). The `core` infrastructure classes carry no link, because they assert the client and the generated types rather than a documented endpoint.
 
-Severity is per class, not per method. `CRITICAL` is used on the primary CRUD classes, `NORMAL` on `BooksValidationTest`, and `MINOR` on the two `core` infrastructure classes. A deviation method inside a CRUD class therefore reports at that class's severity. The README is planned to say so; it does not promise per-method severity.
+Severity is per class, not per method. `CRITICAL` is used on the primary CRUD classes, `NORMAL` on the validation, protocol, error-format and cross-service classes, and `MINOR` on the generated-model and response-wrapper infrastructure classes. A deviation method inside a CRUD class therefore reports at that class's severity. The README is planned to say so; it does not promise per-method severity.
 
 There is no `@Story` label and no `testng.xml`. The method-level `@Feature` override already separates deviations and validation gaps in the Behaviors view, and a second hierarchy would duplicate it. Selection by class, package or group is enough; a suite XML would let a renamed class drop out of a run silently.
 
@@ -252,13 +254,13 @@ At the time of writing, the group filters select these case counts across the re
 
 | Group | Cases |
 |---|---|
-| `contract` | 50 |
+| `contract` | 51 |
 | `deviation` | 20 |
 | `validationGap` | 7 |
 | `dynamicData` | 5 |
-| `crossservice` | 6 |
+| `crossservice` | 2 |
 
-The rows do not sum to the 86 cases in the suite, for two reasons. Five methods carry two groups: four `{"deviation", "validationGap"}` cases between `BooksCreateTest` and `AuthorsWriteTest`, and one `{"crossservice", "deviation"}` case in `BooksAuthorsConsistencyTest`. Three `core` cases carry no group at all: the generated-model and response-wrapper infrastructure tests. Five double-counted cases less three ungrouped ones is the difference of two between the 88 the rows add up to and the 86 cases in the suite. The ADR on the test taxonomy records the alternatives and the label mapping.
+The rows do not sum to the 83 cases in the suite, for two reasons. Five methods carry two groups: four `{"deviation", "validationGap"}` cases between `BooksCreateTest` and `AuthorsWriteTest`, and one `{"crossservice", "deviation"}` case in `BooksAuthorsConsistencyTest`. Three `core` cases carry no group at all: the generated-model and response-wrapper infrastructure tests. Five double-counted cases less three ungrouped ones is the difference of two between the 85 the rows add up to and the 83 cases in the suite. The ADR on the test taxonomy records the alternatives and the label mapping.
 
 ## 8. Evidence discipline
 
@@ -270,7 +272,7 @@ The rules that follow from that:
 - The service is never worked around. There is no fallback payload, no response normalisation, no retry, and no relaxed assertion. The service is not ours to fix.
 - There are no retries. The Surefire POM contains no `rerunFailingTestsCount` or retry plugin (`pom.xml`). `dynamicData` is an exclusion group for CI, not a retry mechanism.
 - Empty bodies are handled, not parsed. `ApiResponse` guards `json()`, `bodyAs()` and `bodyAsList()` with `requireBody()` and throws `IllegalStateException` naming the status. `ApiResponseEdgeTest` pins this against a locally built empty `200`, so the test states the wrapper's rule without depending on which endpoint returns one; `BooksDeleteTest` asserts the live `DELETE /Books/1` shape.
-- Absent `Content-Type` is asserted from the header map only. `ApiResponseAssert.hasNoContentType()` reads `contentType()` and never parses the body. `ApiResponseEdgeTest.absentContentTypeDoesNotParseBody` pins this against a locally built `405` with no content type, and the planned `ProtocolTest` pins the live `405`.
+- Absent `Content-Type` is asserted from the header map only. `ApiResponseAssert.hasNoContentType()` reads `contentType()` and never parses the body. `ApiResponseEdgeTest.absentContentTypeDoesNotParseBody` pins this against a locally built `405` with no content type, and `ProtocolTest` pins the live `405`.
 - The zero date from an empty `PUT` is asserted through JsonPath, because the generated `OffsetDateTime` cannot represent a value without an offset.
 
 Known limits, recorded rather than hidden:
@@ -338,13 +340,14 @@ Commands:
 # Read the report in a browser. This serves it; do not open index.html from disk.
 ./mvnw -B allure:serve
 
-# Run one module with its dependencies.
+# Run one module with its dependencies. -am also runs core's tests, including the live
+# cross-service class, so this is not an offline run.
 ./mvnw -B -pl books -am verify
 
-# Run one group.
-./mvnw -B -pl books -am verify -Dgroups=deviation
+# Run one group across the whole reactor. A module alone cannot resolve the core snapshot.
+./mvnw -B -Dgroups=deviation test
 
-# Run one class.
+# Run one offline class.
 ./mvnw -B -pl core -Dtest=ModelDeserialisationTest test
 
 # Regenerate the models from the committed snapshot.
