@@ -17,7 +17,7 @@ public final class BooksApi {
     }
 
     public ApiResponse create(String body) {
-        return create(body, "application/json; charset=utf-8");
+        return create(body, ApiSpec.JSON);
     }
 
     @Step("POST /Books")
@@ -27,7 +27,7 @@ public final class BooksApi {
 
     @Step("PUT /Books/{id}")
     public ApiResponse update(int id, String body) {
-        return Api.request("PUT", ApiPaths.book(id), body, "application/json; charset=utf-8", null);
+        return Api.request("PUT", ApiPaths.book(id), body, ApiSpec.JSON, null);
     }
 
     @Step("DELETE /Books/{id}")

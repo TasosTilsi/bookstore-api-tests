@@ -14,6 +14,10 @@ public final class Api {
         return request(method, path, null, null, null);
     }
 
+    public static ApiResponse request(String method, String path, Map<String, String> headers) {
+        return request(method, path, null, null, headers);
+    }
+
     public static ApiResponse request(String method, String path, String body,
                                       String contentType, Map<String, String> headers) {
         RequestSpecification spec = ApiSpec.request();

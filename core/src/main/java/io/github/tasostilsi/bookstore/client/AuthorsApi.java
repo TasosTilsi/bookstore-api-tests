@@ -23,12 +23,12 @@ public final class AuthorsApi {
 
     @Step("POST /Authors")
     public ApiResponse create(String body) {
-        return Api.request("POST", ApiPaths.AUTHORS, body, "application/json; charset=utf-8", null);
+        return Api.request("POST", ApiPaths.AUTHORS, body, ApiSpec.JSON, null);
     }
 
     @Step("PUT /Authors/{id}")
     public ApiResponse update(int id, String body) {
-        return Api.request("PUT", ApiPaths.author(id), body, "application/json; charset=utf-8", null);
+        return Api.request("PUT", ApiPaths.author(id), body, ApiSpec.JSON, null);
     }
 
     @Step("DELETE /Authors/{id}")

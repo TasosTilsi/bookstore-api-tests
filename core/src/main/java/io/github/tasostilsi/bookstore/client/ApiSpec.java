@@ -15,6 +15,9 @@ import static io.restassured.RestAssured.given;
 
 final class ApiSpec {
 
+    // The only media type the suite sends. text/plain measured 415; others are untested.
+    static final String JSON = "application/json; charset=utf-8";
+
     private ApiSpec() {
     }
 
