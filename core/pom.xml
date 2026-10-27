@@ -50,6 +50,9 @@
             <library>native</library>
             <output>${project.build.directory}/generated-sources/openapi</output>
             <modelPackage>io.github.tasostilsi.bookstore.model</modelPackage>
+            <!-- Without this the plugin strips ".model" and puts ApiClient, JSON and Configuration
+                 in the project root package, one import away from our own classes. -->
+            <invokerPackage>io.github.tasostilsi.bookstore.generated</invokerPackage>
             <generateApis>false</generateApis>
             <generateSupportingFiles>true</generateSupportingFiles>
             <generateModelTests>false</generateModelTests>
