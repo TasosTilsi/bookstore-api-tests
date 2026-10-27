@@ -16,9 +16,9 @@ The suite covers:
 - The HTTP layer itself: empty response bodies and absent `Content-Type` headers (`core/src/test/java/io/github/tasostilsi/bookstore/http/ApiResponseEdgeTest.java`).
 - The generated models, using a measured wire payload (`core/src/test/java/io/github/tasostilsi/bookstore/model/ModelDeserialisationTest.java`).
 
-- Authors read and write, including the collection's regenerated-data invariants (`authors/src/test/java/io/github/tasostilsi/bookstore/authors/`).
+- Authors read, write and by-book, including the collection's regenerated-data invariants (`authors/src/test/java/io/github/tasostilsi/bookstore/authors/`).
 
-The remaining planned work covers Authors by-book tests, protocol tests, error-format tests and cross-service consistency tests. Those classes are not built yet. See section 9 for the current state.
+The remaining planned work covers protocol tests, error-format tests and cross-service consistency tests. Those classes are not built yet. See section 9 for the current state.
 
 ### Current inventory
 
@@ -26,10 +26,10 @@ The remaining planned work covers Authors by-book tests, protocol tests, error-f
 |---|---|---|
 | `core` tests | 3 cases in 2 classes (`ApiResponseEdgeTest`, `ModelDeserialisationTest`) | Adds the cross-service class (Task 14) |
 | `books` tests | 47 cases across 5 classes | Adds protocol and error-format classes (Tasks 12 and 13) |
-| `authors` tests | 15 cases in 2 classes (`AuthorsReadTest`, `AuthorsWriteTest`) | One more class (Task 11) |
-| Reactor total | 65 cases | 74 methods, 83 cases |
+| `authors` tests | 23 cases in 3 classes (`AuthorsReadTest`, `AuthorsWriteTest`, `AuthorsByBookTest`) | Complete |
+| Reactor total | 73 cases | 74 methods, 87 cases |
 
-The target is 74 methods and 83 cases once every planned class exists. Today the committed tree carries 3 cases in `core`, 47 in `books` and 15 in `authors`, 65 in total.
+The target is 74 methods and 87 cases once every planned class exists. Today the committed tree carries 3 cases in `core`, 47 in `books` and 23 in `authors`, 73 in total.
 
 ## 2. The four-module reactor
 
@@ -252,7 +252,7 @@ At the time of writing, the group filters select these case counts across the re
 
 | Group | Cases |
 |---|---|
-| `contract` | 35 |
+| `contract` | 43 |
 | `deviation` | 19 |
 | `validationGap` | 7 |
 | `dynamicData` | 5 |
@@ -287,7 +287,7 @@ The ADR on no retries records the alternatives and the absent-`Content-Type` lim
 
 ## 9. Current state and what is planned
 
-The work was planned in 17 tasks. The first ten are implemented in the committed tree; the rest are planned and their files do not exist yet.
+The work was planned in 17 tasks. The first eleven are implemented in the committed tree; the rest are planned and their files do not exist yet.
 
 | Task | Scope | State |
 |---|---|---|
@@ -301,7 +301,7 @@ The work was planned in 17 tasks. The first ten are implemented in the committed
 | 8 | Books validation and path tests | Built |
 | 9 | Authors read tests, `AuthorsData` | Built |
 | 10 | Authors write tests | Built |
-| 11 | Authors by-book tests | Planned |
+| 11 | Authors by-book tests | Built |
 | 12 | `books/.../protocol/ProtocolTest` | Planned |
 | 13 | `books/.../protocol/ErrorFormatTest` | Planned |
 | 14 | `core/.../crossservice/BooksAuthorsConsistencyTest` | Planned |
@@ -309,7 +309,7 @@ The work was planned in 17 tasks. The first ten are implemented in the committed
 | 16 | `README.md` | Planned |
 | 17 | Public repository and Pages settings | Planned |
 
-The `authors` module has two test classes, `AuthorsReadTest` and `AuthorsWriteTest`, and a `data/AuthorsData` fixture class. The `books` module has five test classes and a `BooksData` fixture class under `books/src/test/java/io/github/tasostilsi/bookstore/books/data/`. The `core` module has the configuration, HTTP, client and test classes listed in section 3, plus the generated models under `core/target/generated-sources/openapi`. There is no `README.md`, no `.github/` directory and no CI workflow in the repository.
+The `authors` module has three test classes, `AuthorsReadTest`, `AuthorsWriteTest` and `AuthorsByBookTest`, and a `data/AuthorsData` fixture class. The `books` module has five test classes and a `BooksData` fixture class under `books/src/test/java/io/github/tasostilsi/bookstore/books/data/`. The `core` module has the configuration, HTTP, client and test classes listed in section 3, plus the generated models under `core/target/generated-sources/openapi`. There is no `README.md`, no `.github/` directory and no CI workflow in the repository.
 
 ## 10. Configuration and running
 
