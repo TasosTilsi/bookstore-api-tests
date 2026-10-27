@@ -1,0 +1,7 @@
+target/
+!**/src/**/target/
+.idea/
+*.iml
+.DS_Store
+tmp/
+.allure/
