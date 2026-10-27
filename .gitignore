@@ -5,3 +5,6 @@ target/
 .DS_Store
 tmp/
 .allure/
+.omc/
+allure-results/
+allure-report/
