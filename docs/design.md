@@ -246,7 +246,7 @@ Examples from the committed code:
 
 Class-level labels are separate from the selection groups. Every class carries `@Epic("Bookstore API")`, a class-level `@Feature` naming the area and a class-level `@Severity`. A method-level `@Feature` override is added only for a group the class-level feature does not already name, so the cross-service class needs none for `crossservice` and one for `deviation`. `@Link` points at the Swagger document on the service-area classes (`BooksReadTest`, `BooksCreateTest`, `BooksUpdateTest`, `BooksDeleteTest`, `BooksValidationTest`). The `core` infrastructure classes carry no link, because they assert the client and the generated types rather than a documented endpoint.
 
-Severity is per class, not per method. `CRITICAL` is used on the primary CRUD classes, `NORMAL` on the validation, protocol, error-format and cross-service classes, and `MINOR` on the generated-model and response-wrapper infrastructure classes. A deviation method inside a CRUD class therefore reports at that class's severity. The README is planned to say so; it does not promise per-method severity.
+Severity is per class, not per method. `CRITICAL` is used on the primary CRUD classes, `NORMAL` on the validation, protocol, error-format and cross-service classes, and `MINOR` on the generated-model and response-wrapper infrastructure classes. A deviation method inside a CRUD class therefore reports at that class's severity. The README says so; it does not promise per-method severity.
 
 There is no `@Story` label and no `testng.xml`. The method-level `@Feature` override already separates deviations and validation gaps in the Behaviors view, and a second hierarchy would duplicate it. Selection by class, package or group is enough; a suite XML would let a renamed class drop out of a run silently.
 
@@ -289,7 +289,7 @@ The ADR on no retries records the alternatives and the absent-`Content-Type` lim
 
 ## 9. Current state and what is planned
 
-The work was planned in 17 tasks. The first fourteen are implemented in the committed tree; tasks 15 to 17 cover CI, the README and the public repository and are not built yet.
+The work was planned in 17 tasks. The first sixteen are implemented in the committed tree; task 17 covers the public repository and its Pages settings and is not done yet.
 
 | Task | Scope | State |
 |---|---|---|
@@ -307,11 +307,11 @@ The work was planned in 17 tasks. The first fourteen are implemented in the comm
 | 12 | `books/.../protocol/ProtocolTest` | Built |
 | 13 | `books/.../protocol/ErrorFormatTest` | Built |
 | 14 | `core/.../crossservice/BooksAuthorsConsistencyTest` | Built |
-| 15 | `.github/workflows/api-tests.yml` and Pages | Planned |
-| 16 | `README.md` | Planned |
+| 15 | `.github/workflows/api-tests.yml` and Pages | Built |
+| 16 | `README.md` | Built |
 | 17 | Public repository and Pages settings | Planned |
 
-The `authors` module has three test classes, `AuthorsReadTest`, `AuthorsWriteTest` and `AuthorsByBookTest`, and a `data/AuthorsData` fixture class. The `books` module has seven test classes and a `BooksData` fixture class under `books/src/test/java/io/github/tasostilsi/bookstore/books/data/`; two of the seven sit in a `protocol` subpackage. The `core` module has the configuration, HTTP, client and test classes listed in section 3, plus the generated models under `core/target/generated-sources/openapi`. There is no `README.md`, no `.github/` directory and no CI workflow in the repository.
+The `authors` module has three test classes, `AuthorsReadTest`, `AuthorsWriteTest` and `AuthorsByBookTest`, and a `data/AuthorsData` fixture class. The `books` module has seven test classes and a `BooksData` fixture class under `books/src/test/java/io/github/tasostilsi/bookstore/books/data/`; two of the seven sit in a `protocol` subpackage. The `core` module has the configuration, HTTP, client and test classes listed in section 3, plus the generated models under `core/target/generated-sources/openapi`. The repository carries the `README.md`, the CI workflow at `.github/workflows/api-tests.yml`, and the documentation under `docs/`.
 
 ## 10. Configuration and running
 
