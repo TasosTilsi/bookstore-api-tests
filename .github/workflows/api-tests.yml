@@ -1,0 +1,114 @@
+name: api-tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Health gate
+        run: |
+          for i in $(seq 1 5); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' https://fakerestapi.azurewebsites.net/api/v1/Books)
+            echo "attempt $i: $code"
+            if [ "$code" = "200" ]; then exit 0; fi
+            sleep 5
+          done
+          echo "the demo service is not answering 200; failing before the suite so a dead host does not read as 83 contract failures"
+          exit 1
+
+      - name: Run the reactor
+        run: ./mvnw -B clean verify
+
+      - name: Aggregate the Allure report
+        if: always()
+        run: ./mvnw -B allure:aggregate
+
+      - name: Guard against a partial report
+        if: always()
+        run: |
+          shopt -s nullglob
+          files=(*/target/allure-results/*-result.json)
+          echo "allure results: ${#files[@]}"
+          # allure:aggregate warns about a missing module directory and still exits 0, so a partial
+          # run would publish a report of whatever it happened to find. 83 is the reactor total;
+          # fewer means a module did not run.
+          if [ ${#files[@]} -lt 83 ]; then
+            echo "expected at least 83 results, found ${#files[@]}"
+            exit 1
+          fi
+
+      - name: Verify Allure steps were recorded
+        if: always()
+        run: |
+          shopt -s nullglob
+          files=(*/target/allure-results/*-result.json)
+          [ ${#files[@]} -gt 0 ] || { echo "no Allure result files"; exit 1; }
+          # A named step, not a non-empty array: AllureRestAssured adds its own "HTTP exchange"
+          # step, so a count alone stays green with the AspectJ weaver broken.
+          jq -e -s '[.[] | .steps // [] | .[] | .name] | index("GET /Books") != null' "${files[@]}" >/dev/null
+
+      - uses: mikepenz/action-junit-report@v5
+        if: always()
+        with:
+          report_paths: '**/target/surefire-reports/TEST-*.xml'
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: allure-results
+          path: '*/target/allure-results'
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: surefire-reports
+          path: '**/target/surefire-reports'
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: allure-report
+          path: target/site/allure-maven-plugin
+
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    permissions:
+      pages: write
+      id-token: write
+      contents: read
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: allure-report
+          path: report
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: report
+      - id: deployment
+        uses: actions/deploy-pages@v4
