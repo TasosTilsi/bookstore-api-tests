@@ -32,8 +32,8 @@ There is no `@Story` and no `testng.xml`.
 - `-Dgroups=deviation` selects the deviation tests across the reactor without a suite file. The same works for the other four groups.
 - A renamed class cannot silently leave a group run, because the group is declared on the method, not in a separate XML file.
 - The Behaviors view shows the class area plus the `Contract deviations`, `Validation gaps`, `Dynamic data` and `Cross-service consistency` sections created by the overrides. The Suites view keeps each test in its natural class.
-- Severity is per class, not per method: `CRITICAL` on the CRUD classes, `NORMAL` on the validation class, `MINOR` on the two `core` infrastructure classes. A deviation method inside a `CRITICAL` class reports at `CRITICAL`. The README states this rather than promising per-method severity.
-- At the time of writing, `-Dgroups=crossservice` selects zero cases because `BooksAuthorsConsistencyTest` is planned for Task 14. The command is still valid; it will select the cross-service methods once they exist.
+- Severity is per class, not per method: `CRITICAL` on the CRUD classes, `NORMAL` on the validation, protocol, error-format and cross-service classes, `MINOR` on the `core` infrastructure classes. A deviation method inside a `CRITICAL` class reports at `CRITICAL`. The README states this rather than promising per-method severity.
+- `-Dgroups=crossservice` selects six cases today, the three methods of `BooksAuthorsConsistencyTest` and its four-row provider.
 - The label mapping is mechanical and lives in one table, the one above. Adding a group without adding its label would be visible in the Behaviors view.
 
 ## Alternatives considered and why rejected

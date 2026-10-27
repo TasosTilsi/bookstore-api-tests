@@ -18,18 +18,18 @@ The suite covers:
 
 - Authors read, write and by-book, including the collection's regenerated-data invariants (`authors/src/test/java/io/github/tasostilsi/bookstore/authors/`).
 
-The remaining planned work covers protocol tests, error-format tests and cross-service consistency tests. Those classes are not built yet. See section 9 for the current state.
+The remaining planned work is infrastructure rather than coverage: the CI workflow, the README and the public repository. Every test class in the plan exists. See section 9 for the current state.
 
 ### Current inventory
 
 | Area | Committed today | Plan target |
 |---|---|---|
-| `core` tests | 3 cases in 2 classes (`ApiResponseEdgeTest`, `ModelDeserialisationTest`) | Adds the cross-service class (Task 14) |
-| `books` tests | 47 cases across 5 classes | Adds protocol and error-format classes (Tasks 12 and 13) |
+| `core` tests | 9 cases in 3 classes (`ApiResponseEdgeTest`, `ModelDeserialisationTest`, `BooksAuthorsConsistencyTest`) | Complete |
+| `books` tests | 54 cases across 7 classes | Complete |
 | `authors` tests | 23 cases in 3 classes (`AuthorsReadTest`, `AuthorsWriteTest`, `AuthorsByBookTest`) | Complete |
-| Reactor total | 73 cases | 74 methods, 87 cases |
+| Reactor total | 73 methods, 86 cases | 73 methods, 86 cases |
 
-The target is 74 methods and 87 cases once every planned class exists. Today the committed tree carries 3 cases in `core`, 47 in `books` and 23 in `authors`, 73 in total.
+The plan targeted 74 methods and 87 cases. The difference is one method: `ErrorFormatTest` shipped three cases rather than four, because its fourth asserted the same request and the same two absences as `BooksDeleteTest.deleteExistingReturns200WithEmptyBody` and added nothing.
 
 ## 2. The four-module reactor
 
@@ -50,8 +50,8 @@ What belongs in each module:
 
 | Module | Contents |
 |---|---|
-| `core` | Shared code: configuration, HTTP wrapper, fluent clients, generated models. Also the two infrastructure test classes that exist today. Planned: cross-service tests. |
-| `books` | Books test classes and their JSON fixtures. Planned: protocol and error-format test classes. |
+| `core` | Shared code: configuration, HTTP wrapper, fluent clients, generated models, and the infrastructure test classes, including the cross-service test that needs both clients. |
+| `books` | Books test classes and their JSON fixtures, including the protocol and error-format classes. |
 | `authors` | Authors test classes and their JSON fixtures. |
 
 The dependency arrow points one way. `books` and `authors` depend on `core`; `core` has no dependency on either service module. That is what keeps the reactor acyclic and lets a cross-service test live in `core`, where both clients are already visible. The rule is visible in `core/pom.xml`, which declares no internal dependency.
@@ -252,13 +252,13 @@ At the time of writing, the group filters select these case counts across the re
 
 | Group | Cases |
 |---|---|
-| `contract` | 43 |
-| `deviation` | 19 |
+| `contract` | 50 |
+| `deviation` | 20 |
 | `validationGap` | 7 |
 | `dynamicData` | 5 |
-| `crossservice` | 0 (the cross-service class is planned for Task 14) |
+| `crossservice` | 6 |
 
-The ADR on the test taxonomy records the alternatives and the label mapping.
+The rows do not sum to the 86 cases in the suite, for two reasons. Five methods carry two groups: four `{"deviation", "validationGap"}` cases between `BooksCreateTest` and `AuthorsWriteTest`, and one `{"crossservice", "deviation"}` case in `BooksAuthorsConsistencyTest`. Three `core` cases carry no group at all: the generated-model and response-wrapper infrastructure tests. Five double-counted cases less three ungrouped ones is the difference of two between the 88 the rows add up to and the 86 cases in the suite. The ADR on the test taxonomy records the alternatives and the label mapping.
 
 ## 8. Evidence discipline
 
@@ -287,7 +287,7 @@ The ADR on no retries records the alternatives and the absent-`Content-Type` lim
 
 ## 9. Current state and what is planned
 
-The work was planned in 17 tasks. The first eleven are implemented in the committed tree; the rest are planned and their files do not exist yet.
+The work was planned in 17 tasks. The first fourteen are implemented in the committed tree; tasks 15 to 17 cover CI, the README and the public repository and are not built yet.
 
 | Task | Scope | State |
 |---|---|---|
@@ -302,14 +302,14 @@ The work was planned in 17 tasks. The first eleven are implemented in the commit
 | 9 | Authors read tests, `AuthorsData` | Built |
 | 10 | Authors write tests | Built |
 | 11 | Authors by-book tests | Built |
-| 12 | `books/.../protocol/ProtocolTest` | Planned |
-| 13 | `books/.../protocol/ErrorFormatTest` | Planned |
-| 14 | `core/.../crossservice/BooksAuthorsConsistencyTest` | Planned |
+| 12 | `books/.../protocol/ProtocolTest` | Built |
+| 13 | `books/.../protocol/ErrorFormatTest` | Built |
+| 14 | `core/.../crossservice/BooksAuthorsConsistencyTest` | Built |
 | 15 | `.github/workflows/api-tests.yml` and Pages | Planned |
 | 16 | `README.md` | Planned |
 | 17 | Public repository and Pages settings | Planned |
 
-The `authors` module has three test classes, `AuthorsReadTest`, `AuthorsWriteTest` and `AuthorsByBookTest`, and a `data/AuthorsData` fixture class. The `books` module has five test classes and a `BooksData` fixture class under `books/src/test/java/io/github/tasostilsi/bookstore/books/data/`. The `core` module has the configuration, HTTP, client and test classes listed in section 3, plus the generated models under `core/target/generated-sources/openapi`. There is no `README.md`, no `.github/` directory and no CI workflow in the repository.
+The `authors` module has three test classes, `AuthorsReadTest`, `AuthorsWriteTest` and `AuthorsByBookTest`, and a `data/AuthorsData` fixture class. The `books` module has seven test classes and a `BooksData` fixture class under `books/src/test/java/io/github/tasostilsi/bookstore/books/data/`; two of the seven sit in a `protocol` subpackage. The `core` module has the configuration, HTTP, client and test classes listed in section 3, plus the generated models under `core/target/generated-sources/openapi`. There is no `README.md`, no `.github/` directory and no CI workflow in the repository.
 
 ## 10. Configuration and running
 
