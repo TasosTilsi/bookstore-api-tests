@@ -21,7 +21,7 @@ Keep the dependency arrow one way. Cross-service tests live in `core`, where bot
 - A module runs independently: `./mvnw -B -pl books -am verify` builds `core` first and runs its tests too, because `-am` runs every upstream module through the same lifecycle phase. That includes the live cross-service class, so a per-module run is not an offline run. `core`'s own two infrastructure classes can be run offline with `-pl core -Dtest=ApiResponseEdgeTest,ModelDeserialisationTest`.
 - Adding a service costs one module POM, one client class, a block of constants in `ApiPaths` and a test package. It does not require editing a shared class list.
 - The `books` and `authors` modules hold only test sources, so they declare `core` at `test` scope.
-- The reactor reports 87 cases today (8 in `core`, 55 in `books`, 24 in `authors`) from 76 methods.
+- The reactor reports 91 cases today (11 in `core`, 54 in `books`, 26 in `authors`) from 81 methods. Twenty-five of the cases fail against the demo, because they assert requirements it does not meet; that is the intended report, not a reactor fault. See ADR-0014.
 - The design and the plan both put `ProtocolTest` and `ErrorFormatTest` under `books/src/test/java/io/github/tasostilsi/bookstore/books/protocol/`, not in `core`: every request they make is a Books request. `core` holds only the cross-service class, whose subject is the relationship between the two resources. One probe in `ProtocolTest` is the exception, an unrouted path that no module owns; it is asserted there and labelled `contract`, because the host answers it, not a Books endpoint.
 
 ## Alternatives considered and why rejected

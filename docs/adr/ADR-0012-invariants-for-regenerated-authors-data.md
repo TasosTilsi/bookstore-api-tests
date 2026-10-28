@@ -1,6 +1,6 @@
 # ADR-0012: Invariants instead of values for regenerated Authors data
 
-- Status: Accepted
+- Status: Accepted, amended by ADR-0015
 - Date: 2026-10-27
 
 ## Context
@@ -30,8 +30,8 @@ The rule behind all of this: every assertion must hold for every response the se
 - The Authors tests remain stable while the population is regenerated. The invariants held on every probe.
 - The suite cannot detect a change that keeps the invariants but changes the content, such as a different author name in an existing group. That is a deliberate limit; the alternative is a flaky test.
 - `AuthorsReadTest`, `AuthorsWriteTest` and `AuthorsByBookTest` apply this rule. The cross-service test applies it to the book-id versus group-id set.
-- A write test still uses a high id such as 7000 or 9001 for the read-back `404`. The id is far above any possible generated id, so the `404` is unambiguous even though the population is random.
-- There is no cleanup step. Nothing is stored, so there is nothing to clean.
+- A write test reads back the id the server reports in `Location`, never an id captured from a list response. The id a test sends is above the generated population (7000 or 9002), so it cannot name a regenerated author. See ADR-0015.
+- Nothing is cleaned up in the read tests, because they create nothing. A write test owns the resource it creates, and deletes it where the test is about deletion.
 
 ## Alternatives considered and why rejected
 

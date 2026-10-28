@@ -17,7 +17,7 @@ The Allure listener is registered by `allure-testng` through its service file, s
 
 ## Consequences
 
-- `-Dgroups=contract`, `-Dgroups=deviation`, `-Dgroups=validationGap`, `-Dgroups=dynamicData` and `-Dgroups=crossservice` are the selection mechanism. No suite XML exists.
+- `-Dgroups=contract`, `-Dgroups=defect`, `-Dgroups=regression`, `-Dgroups=dynamicData` and `-Dgroups=crossservice` are the selection mechanism. No suite XML exists.
 - A method can belong to several groups. `@Feature` is repeatable, so the Allure label can mirror a multi-group method.
 - Data providers are the only expansion mechanism. `BooksReadTest` uses providers for absent ids and publish-date samples, which is why its case count is higher than its method count.
 - Surefire still writes `TEST-*.xml` JUnit-format reports for machine consumption, even though TestNG is the engine.

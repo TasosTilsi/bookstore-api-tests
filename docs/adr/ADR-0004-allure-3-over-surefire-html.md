@@ -25,11 +25,11 @@ Do not enable the Surefire HTML report. Keep the Surefire JUnit XML.
 ## Consequences
 
 - Each test expands into its client-call steps. A delete-then-read test records `DELETE /Books/1` and `GET /Books/1` as separate steps. The `AllureRestAssured` filter adds an `HTTP exchange` step with the request and response attachments.
-- Steps depend on the AspectJ weaver being on the test JVM. The parent POM declares `aspectjweaver` as a Surefire plugin dependency and passes it as a quoted `-javaagent` on `argLine` (`pom.xml`). A missing agent produces no steps and no error, so the planned CI workflow checks for the named step `GET /Books` rather than a non-empty steps array.
+- Steps depend on the AspectJ weaver being on the test JVM. The parent POM declares `aspectjweaver` as a Surefire plugin dependency and passes it as a quoted `-javaagent` on `argLine` (`pom.xml`). A missing agent produces no steps and no error, so the CI workflow checks for the named step `GET /Books` rather than a non-empty steps array.
 - The generated result JSON contains the Allure labels and links from `@Epic`, `@Feature`, `@Severity` and `@Link`. Method-level `@Feature` overrides move a test into its own Behaviors section while leaving it in its class in the Suites view.
 - `target/allure-results` at the root accumulates across runs when the target directory is not cleaned. Local runs use `clean verify` before aggregating, or the report shows tests that no longer exist.
 - The report must be served, not opened from disk, because Allure loads its data over XHR from relative paths.
-- Multi-call tests rely on the per-call `@Step` and do not wrap the sequence in `Allure.step`; `BooksDeleteTest.deleteDoesNotRemoveResource` is the current example. The two client terminals already produce the two named steps, so a wrapper would nest a third.
+- Multi-call tests rely on the per-call `@Step` and do not wrap the sequence in `Allure.step`; `BooksDeleteTest.deleteRemovesResourceAndLaterGetReturns404` is the current example. The client terminals already produce the named steps, so a wrapper would nest a redundant one.
 
 ## Alternatives considered and why rejected
 

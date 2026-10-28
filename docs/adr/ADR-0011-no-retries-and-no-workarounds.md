@@ -1,6 +1,6 @@
 # ADR-0011: No retries and no workarounds for service behaviour
 
-- Status: Accepted
+- Status: Accepted, amended by ADR-0014
 - Date: 2026-10-27
 
 ## Context
@@ -22,12 +22,12 @@ Do not retry, normalise, fall back or relax an assertion. Record the behaviour a
 - The absent request `Content-Type` case is not tested. The `415` contract is pinned with `text/plain`, which the client can send.
 - `HEAD` is not tested. The 25 second wait would encode the client's timeout, not the contract.
 - The empty-body accessors throw instead of parsing. The zero-date default is read through JsonPath instead of the generated `OffsetDateTime`.
-- `dynamicData` is an exclusion group for CI. It is not a retry mechanism.
+- `dynamicData` marks an assertion that reads a value regenerated per request. No group is excluded from CI: the assertions are written so that a regenerated value cannot make them flake, and every run exercises them.
 
 ## Consequences
 
-- An origin outage or a network failure reads as a test failure. The planned CI workflow adds a health gate before the suite so a dead host is distinguishable from a contract failure.
-- A test that depends on a regenerated value can be excluded from a CI run with `dynamicData`. It is still part of the full local suite.
+- An origin outage or a network failure reads as a test failure. The CI workflow runs a health gate before the suite so a dead host is distinguishable from a contract failure.
+- A regenerated value cannot be pinned, only bounded: the tests assert invariants, and no run excludes them.
 - The suite sends malformed, empty, array and partial bodies as raw strings. A typed payload object would have defaulted fields and changed the payload under test.
 - The known limits are documented rather than hidden: absent request `Content-Type`, `HEAD`, Authors totals, the public host dependency, and the absence of a mock.
 - If the service changes, the suite goes red. That is the intended signal, and the response is a re-probe and a decision, not a retry.

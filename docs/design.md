@@ -6,9 +6,9 @@ The service under test is the public FakeRestAPI bookstore at `https://fakeresta
 
 ## 1. What the suite tests and why
 
-The suite exercises the Books and Authors resources of a public demo API. Neither resource requires authentication. The API is stateless: a successful write returns an echo of the request and persists nothing. Several responses also contradict common REST expectations. For example, `POST /Books` returns `200` rather than `201`, `DELETE /Books/1` returns `200` with an empty body rather than `204`, and `PUT /Books/1` takes the resource id from the body rather than the path.
+The suite exercises the Books and Authors resources of a public demo API. Neither resource requires authentication. The API is stateless: a successful write returns an echo of the request and persists nothing. Several responses also contradict RFC 9110. For example, `POST /Books` returns `200` rather than `201`, `DELETE /Books/1` returns `200` with an empty body and removes nothing, and `PUT /Books/1` takes the resource id from the body rather than the path.
 
-The tests assert what the service actually does. They do not assert textbook REST behaviour that the service does not implement. This is the central rule of the suite, and it is recorded in the ADRs on evidence and on the test taxonomy.
+The tests assert the contract: what RFC 9110 and the committed OpenAPI snapshot require, whether or not this service satisfies it. A test that exercises a violated requirement fails, and that failure is the defect entry. Measurement is evidence for what the service does, not the source of the expected value. The rule is recorded in ADR-0014.
 
 The suite covers:
 
@@ -18,18 +18,18 @@ The suite covers:
 
 - Authors read, write and by-book, including the collection's regenerated-data invariants (`authors/src/test/java/io/github/tasostilsi/bookstore/authors/`).
 
-The remaining planned work is infrastructure rather than coverage: the CI workflow, the README and the public repository. Every test class in the plan exists. See section 9 for the current state.
+The remaining planned work is the public repository and its Pages settings. Every test class, the CI workflow and the README exist. See section 9 for the current state.
 
 ### Current inventory
 
 | Area | Committed today | Plan target |
 |---|---|---|
-| `core` tests | 8 cases in 3 classes (`ApiResponseEdgeTest`, `ModelDeserialisationTest`, `BooksAuthorsConsistencyTest`) | Complete |
-| `books` tests | 55 cases across 7 classes | Complete |
-| `authors` tests | 24 cases in 3 classes (`AuthorsReadTest`, `AuthorsWriteTest`, `AuthorsByBookTest`) | Complete |
-| Reactor total | 76 methods, 87 cases | 76 methods, 87 cases |
+| `core` tests | 11 cases in 3 classes (`ApiResponseEdgeTest`, `ModelDeserialisationTest`, `BooksAuthorsConsistencyTest`) | Complete |
+| `books` tests | 54 cases across 7 classes | Complete |
+| `authors` tests | 26 cases in 3 classes (`AuthorsReadTest`, `AuthorsWriteTest`, `AuthorsByBookTest`) | Complete |
+| Reactor total | 81 methods, 91 cases; 25 fail against the demo | 81 methods, 91 cases |
 
-The plan targeted 74 methods and 87 cases. Two methods were cut at review, both because they asserted less than their names claimed. `ErrorFormatTest` lost a fourth case that re-issued `BooksDeleteTest.deleteExistingReturns200WithEmptyBody` and asserted the same two absences. `BooksAuthorsConsistencyTest` lost a by-book case that called the Authors client only, which contradicts the definition of the `crossservice` group; its one extra provider row moved to `AuthorsByBookTest`.
+The original plan targeted 76 methods and 87 cases. The contract-first revision added three `ApiResponseEdgeTest` cases and two `AuthorsWriteTest` cases, and removed one absent-id row that a corrected service could satisfy by assigning that id. Two methods were cut at review, both because they asserted less than their names claimed. `ErrorFormatTest` lost a fourth case that re-issued `BooksDeleteTest.deleteExistingReturns204WithNoBody` and asserted the same two absences. `BooksAuthorsConsistencyTest` lost a by-book case that called the Authors client only, which contradicts the definition of the `crossservice` group; its one extra provider row moved to `AuthorsByBookTest`.
 
 The class-level policy that replaces ad-hoc duplication calls: `ErrorFormatTest` is the canonical home of the error envelope and re-issues requests other classes already make, because it asserts envelope content (the version parameter, the exact `type` URI, the exact `title`) that the shared helpers leave to callers. Every other class asserts behaviour. A case is only cut when it asserts nothing the suite does not already assert.
 
@@ -92,7 +92,7 @@ The request path:
 
 The response path:
 
-1. `ApiResponse` exposes `status()`, `header(name)`, `contentType()`, `body()`, `hasBody()`, `json()`, `bodyAs(Class)`, `bodyAsList(Class)` and `assertThat()` (`core/src/main/java/io/github/tasostilsi/bookstore/http/ApiResponse.java`).
+1. `ApiResponse` exposes `status()`, `header(name)`, `contentType()`, `body()`, `hasBody()`, `locationId()`, `json()`, `bodyAs(Class)`, `bodyAsList(Class)` and `assertThat()` (`core/src/main/java/io/github/tasostilsi/bookstore/http/ApiResponse.java`). `locationId()` reads the last path segment of `Location` and throws when the header is absent; it is how a fixture learns the id the server assigned, rather than assuming the id it sent was stored (ADR-0015).
 2. `contentType()` reads the raw `Content-Type` header rather than `getContentType()`, because the latter normalises an absent header to an empty string. The contract distinguishes absent from empty.
 3. `json()`, `bodyAs()` and `bodyAsList()` call `requireBody()` first. If the body is empty they throw `IllegalStateException` naming the status and status line, rather than letting a parser fail with an opaque message.
 4. `assertThat()` returns an `ApiResponseAssert`, a fluent chain of hard assertions (`core/src/main/java/io/github/tasostilsi/bookstore/http/ApiResponseAssert.java`).
@@ -141,33 +141,32 @@ What each part does:
 - The final Hamcrest assertion checks the exact top-level key set. It is written directly because the chain does not express set equality. Hamcrest arrives transitively with RestAssured; no AssertJ dependency is declared.
 - `BOOK_1_TITLE` and `BOOK_1_PAGE_COUNT` come from `books/src/test/java/io/github/tasostilsi/bookstore/books/data/BooksData.java`, which also holds the factories that generate request payloads. Measured values are constants, generated payloads are factory calls, and neither needs a shared base class.
 
-Deviation and validation-gap methods add method-level labels. `BooksCreateTest.createWithEmptyObjectReturnsDefaults` shows both:
+A defect method carries both `contract` and `defect`, and adds the defect feature label. `BooksCreateTest.createReturns201WithLocation` is the smallest example:
 
 ```java
-@Test(groups = {"deviation", "validationGap"})
-@Feature("Contract deviations")
-@Feature("Validation gaps")
-public void createWithEmptyObjectReturnsDefaults() {
-    Api.books().create(EMPTY_OBJECT).assertThat().hasStatus(200).isVersionedJson()
-            .hasField("id", 0).hasNullField("title").hasField("pageCount", 0)
-            .hasNullField("description").hasNullField("excerpt")
-            .hasField("publishDate", ZERO_DATE_DEFAULT);
+@Test(groups = {"contract", "defect"})
+@Feature("Contract defects")
+@Description("RFC 9110 9.3.3 and 15.3.2: creating a resource answers 201 with a Location")
+public void createReturns201WithLocation() {
+    Api.books().create(BooksData.book()).assertThat().hasStatus(201).hasHeader("Location");
 }
 ```
 
-`@Feature` is repeatable. A method in two groups carries two overrides, which is what moves it into both sections of the Allure Behaviors view. A deviation whose method name does not already state the deviation also carries `@Description`, for example `BooksDeleteTest.deleteExistingReturns200WithEmptyBody`.
+`contract` is the requirement the method asserts. `defect` says this service is known to violate it, so the method is expected to fail until the service changes; the failure, not a recorded measurement, is the defect entry. `@Feature` is repeatable, so the method appears under both the class feature and `Contract defects` in the Behaviors view. A measured behaviour that no contract requires carries `@Feature("Measured behaviour")` and the `regression` group instead. A method whose failure is obvious without explanation carries no `@Description`; one whose measured gap is not obvious in the assertion does.
+
+A test that needs a created resource asserts the create's `201` with a reason, for example `hasStatus(201, "precondition: a correct service stores the book it creates and returns its Location")`. The reason makes the report say which assertion failed first instead of leaving the method name to promise the subject. The reason is used only on a fixture, never on an assertion that is the test's subject.
 
 Valid request bodies are built from the generated types. The service also accepts empty, malformed, partial, array and wrong-type bodies, and those stay JSON strings, because a typed constructor would default a field and silently change the payload under test. So both terminals exist: `create(Book)` and `update(int, Book)` for generated data, `create(String)` and `update(int, String)` for the payloads a model cannot express.
 
-Data providers expand a method into several cases. `BooksReadTest` has a provider for the four absent ids and one for the publish-date samples. The case count is therefore higher than the method count.
+Data providers expand a method into several cases. `BooksReadTest` has a provider for the three absent ids and one for the publish-date samples. The case count is therefore higher than the method count.
 
 ## 5. Requests, assertions and Allure steps
 
 Three mechanisms connect a test to the report.
 
-**`@Step` on client terminals.** Each resource operation carries an Allure `@Step` naming the verb and path, for example `@Step("GET /Books/{id}")` and `@Step("POST /Books")`. The one-argument `create(String)` delegates to the annotated `create(String, String)` overload. The method parameters fill the `{id}` placeholder, which requires `<parameters>true</parameters>` on `maven-compiler-plugin` (`pom.xml`). A test such as `deleteDoesNotRemoveResource` therefore records two steps, `DELETE /Books/1` and `GET /Books/1`, without any `Allure.step` wrapper in the test.
+**`@Step` on client terminals.** Each resource operation carries an Allure `@Step` naming the verb and path, for example `@Step("GET /Books/{id}")` and `@Step("POST /Books")`. The one-argument `create(String)` delegates to the annotated `create(String, String)` overload. The method parameters fill the `{id}` placeholder, which requires `<parameters>true</parameters>` on `maven-compiler-plugin` (`pom.xml`). A test such as `deleteRemovesResourceAndLaterGetReturns404` therefore records its POST and its three subsequent operations without any `Allure.step` wrapper in the test.
 
-**AspectJ weaving.** `@Step` writes nothing unless the AspectJ weaver is attached to the test JVM. The parent POM declares `aspectjweaver` as a Surefire plugin dependency and passes it as `-javaagent` on `argLine` (`pom.xml`). The path is quoted because Surefire tokenises `argLine` before forking. A missing agent produces no steps and no error, which is why the planned CI workflow checks for a named step rather than only a non-empty steps array.
+**AspectJ weaving.** `@Step` writes nothing unless the AspectJ weaver is attached to the test JVM. The parent POM declares `aspectjweaver` as a Surefire plugin dependency and passes it as `-javaagent` on `argLine` (`pom.xml`). The path is quoted because Surefire tokenises `argLine` before forking. A missing agent produces no steps and no error, which is why the CI workflow checks for a named step rather than only a non-empty steps array.
 
 **`AllureRestAssured`.** `ApiSpec` registers the filter on every request. It adds an `HTTP exchange` step containing the request and response attachments. This is why tests that go through `Api.request` still have a report entry even though `Api.request` itself has no `@Step`.
 
@@ -214,68 +213,69 @@ The models are the type target in both directions. `ApiResponse.bodyAs` and `bod
 
 Generated payloads come from one faker per JVM, seeded from `-Ddata.seed` or a fresh random value, with the seed printed at startup and attached to each test that generated data (`core/src/main/java/io/github/tasostilsi/bookstore/data/RandomData.java`). The request mapper omits nulls because a measured `POST` with `"id":null` answers `400`, while an omitted field binds to the default (`core/src/main/java/io/github/tasostilsi/bookstore/client/ApiSpec.java`).
 
-One response does not fit the generated type. A `PUT /Books/1` with `{}` or a partial body returns `"publishDate":"0001-01-01T00:00:00"`, which has no UTC offset and cannot parse as `OffsetDateTime`. The update test asserts that value through JsonPath with `hasField`, not through `bodyAs` (`books/src/test/java/io/github/tasostilsi/bookstore/books/BooksUpdateTest.java`). This is a recorded deviation, not a workaround: the assertion states what the service returns.
+The zero date does not fit the generated type. A `PUT /Books/1` with `{}` answers `200` with `"publishDate":"0001-01-01T00:00:00"`, which carries no offset and cannot parse as `OffsetDateTime`. No test reads that echo as a model. A test that needs the update's own answer asserts the contract instead, meaning a replacement or a `409` for a representation whose id disagrees with the path, and that assertion fails on this service with the requirement named rather than a parse error.
 
 The ADR on generated models records why the snapshot is committed and what was rejected.
 
 ## 7. Test taxonomy
 
-Every method carries at least one selection group. The three primary groups classify the behaviour. Two further groups mark orthogonal properties and can be combined with any primary group.
+Every method carries at least one selection group. Three groups classify the requirement a method asserts. Two further groups mark orthogonal properties and can be combined with any of them.
 
 | Group | Meaning | Allure label |
 |---|---|---|
-| `contract` | Observed behaviour that also matches a reasonable REST expectation. | Class `@Feature` (no override). |
-| `deviation` | Observed behaviour that contradicts a REST or RFC convention. | `@Feature("Contract deviations")` |
-| `validationGap` | Input that should be rejected but is accepted, or the reverse. | `@Feature("Validation gaps")` |
-| `dynamicData` | The assertion depends on a value regenerated per request. Orthogonal to the primary groups. | `@Feature("Dynamic data")` |
-| `crossservice` | The assertion spans Books and Authors. Orthogonal to the primary groups. | `@Feature("Cross-service consistency")` |
+| `contract` | The assertion states what any correct REST API must do, whether or not this service does it. | Class `@Feature` (no override). |
+| `defect` | A modifier on a `contract` method whose requirement this service violates. Expected to fail until the service is fixed. | `@Feature("Contract defects")` |
+| `regression` | Measured behaviour of this implementation that no contract requires. Expected to pass; a change in it is a change in the service, not a broken test. | `@Feature("Measured behaviour")` |
+| `dynamicData` | The assertion reads a value the service regenerates per request. Orthogonal to the classifying groups. | `@Feature("Dynamic data")` |
+| `crossservice` | The assertion spans Books and Authors. Orthogonal to the classifying groups. | Class `@Feature` (no override). |
 
-The rule that decides the primary group:
+The rule that decides the classification:
 
-1. Compare the observed response with the convention that applies to the operation: the HTTP method semantics in RFC 9110, the problem-details shape, or the OpenAPI document's declared types.
-2. If the response agrees with the convention, use `contract`.
-3. If the response contradicts the convention, use `deviation`.
-4. If the contradiction is specifically about validation, meaning the service accepted input a contract should reject or rejected input it should accept, also add `validationGap`. A method can therefore carry `{"deviation", "validationGap"}`.
+1. State the requirement the method asserts, taken from the HTTP method semantics in RFC 9110, the problem-details shape, or the types the committed OpenAPI schema declares.
+2. If the service meets the requirement, the method is `contract`.
+3. If the service violates it, the method is `contract` and `defect`: the requirement is still part of the contract, and the `defect` modifier records that this service misses it.
+4. If no contract decides the answer and the assertion records what this implementation does, the method is `regression`. Seed ranges, case-insensitive path matching and ignored query parameters belong here: neither answer is wrong.
 5. Independently of the above, add `dynamicData` when the assertion reads a value the service regenerates per request, and `crossservice` when the test calls both Books and Authors.
 
 Examples from the committed code:
 
-- `createEchoesPayloadWith200AndNoLocation` is `deviation`: `POST` returns `200` and no `Location`, where RFC 9110 expects `201` with a `Location` for a created resource.
-- `createAcceptsNegativePageCount` is `validationGap`: a negative page count is accepted with `200`.
-- `createWithEmptyObjectReturnsDefaults` is both `deviation` and `validationGap`: an empty object is accepted and reset to defaults.
-- `publishDateIsNowMinusNDays` is `dynamicData`: it compares the response `publishDate` with the response `Date` header.
-- The `BooksAuthorsConsistencyTest` methods are `crossservice`, and `statelessnessSpansBothResources` is also `deviation`. Two classifications sit at the edge and stay where they are: `updateWithEmptyObjectResetsFields` is `deviation` alone where its create equivalent is also `validationGap`, because `PUT` replaces the resource and an empty object replacing it is not a rejected field; and `listIdsAreContiguousAscendingFromOne` is `dynamicData` although it asserts an internal invariant that would survive a change to the population.
+- `createReturns201WithLocation` is `{"contract", "defect"}`: RFC 9110 9.3.3 and 15.3.2 require `201` with a `Location`, and the service answers `200`.
+- `deleteRemovesResourceAndLaterGetReturns404` is `{"contract", "defect"}`: RFC 9110 9.3.5 requires removal, and the service removes nothing.
+- `createWithMalformedJsonReturns400` is `contract` alone: a malformed body must be rejected, and this service rejects it.
+- `createAcceptsNegativePageCount` is `regression`: the schema declares no minimum, so neither `400` nor `200` is required; the method records that `200` is what happens.
+- `publishDateIsNowMinusNDays` is `dynamicData`, and `createdResourcesAreVisibleAcrossBothResources` is `{"crossservice", "contract", "defect"}`.
 
-Class-level labels are separate from the selection groups. Every class carries `@Epic("Bookstore API")`, a class-level `@Feature` naming the area and a class-level `@Severity`. A method-level `@Feature` override is added only for a group the class-level feature does not already name, so the cross-service class needs none for `crossservice` and one for `deviation`. `@Link` points at the Swagger document on the service-area classes (`BooksReadTest`, `BooksCreateTest`, `BooksUpdateTest`, `BooksDeleteTest`, `BooksValidationTest`). The `core` infrastructure classes carry no link, because they assert the client and the generated types rather than a documented endpoint.
+`defect` sits on top of `contract` rather than replacing it, so `-Dgroups=contract` selects the whole contract, failures included, and `-Dgroups=defect` selects the defect report alone. Both filters run the same assertions; they differ only in what they are asked to show.
 
-Severity is per class, not per method. `CRITICAL` is used on the primary CRUD classes, `NORMAL` on the validation, protocol, error-format and cross-service classes, and `MINOR` on the generated-model and response-wrapper infrastructure classes. A deviation method inside a CRUD class therefore reports at that class's severity. The README says so; it does not promise per-method severity.
+Class-level labels are separate from the selection groups. Every class carries `@Epic("Bookstore API")`, a class-level `@Feature` naming the area and a class-level `@Severity`. A method-level `@Feature` override is added only for a label the class-level feature does not already name, so the cross-service class needs none for `crossservice` and one for `defect`. `@Link` points at the Swagger document on the service-area classes (`BooksReadTest`, `BooksCreateTest`, `BooksUpdateTest`, `BooksDeleteTest`, `BooksValidationTest`). The `core` infrastructure classes carry no link, because they assert the client and the generated types rather than a documented endpoint.
 
-There is no `@Story` label and no `testng.xml`. The method-level `@Feature` override already separates deviations and validation gaps in the Behaviors view, and a second hierarchy would duplicate it. Selection by class, package or group is enough; a suite XML would let a renamed class drop out of a run silently.
+Severity is per class, not per method. `CRITICAL` is used on the primary CRUD classes, `NORMAL` on the validation, protocol, error-format and cross-service classes, and `MINOR` on the generated-model and response-wrapper infrastructure classes. A defect method inside a CRUD class therefore reports at that class's severity, not at a severity of its own.
 
-At the time of writing, the group filters select these case counts across the reactor:
+There is no `@Story` label and no `testng.xml`. The method-level `@Feature` override already separates defects from measured behaviour in the Behaviors view, and a second hierarchy would duplicate it. Selection by class, package or group is enough; a suite XML would let a renamed class drop out of a run silently.
+
+At the time of writing, the group filters select these case counts across the reactor, read from the Surefire reports of the run recorded in section 9 rather than counted by hand:
 
 | Group | Cases |
 |---|---|
-| `contract` | 51 |
-| `deviation` | 21 |
-| `validationGap` | 7 |
+| `contract` | 66 |
+| `defect` | 25 |
+| `regression` | 10 |
 | `dynamicData` | 5 |
 | `crossservice` | 2 |
 
-The rows do not sum to the 87 cases in the suite, for two reasons. Five methods carry two groups: four `{"deviation", "validationGap"}` cases between `BooksCreateTest` and `AuthorsWriteTest`, and one `{"crossservice", "deviation"}` case in `BooksAuthorsConsistencyTest`. Six `core` cases carry no group at all: the generated-model and response-wrapper infrastructure tests, including the three that prove the assertion chain rejects a wrong value. Five double-counted cases plus six ungrouped ones is the difference of one between the 86 the rows add up to and the 87 cases in the suite. The ADR on the test taxonomy records the alternatives and the label mapping.
+The rows add to 108 against 91 cases, because 25 defect methods are also `contract` and one cross-service method also carries `defect`; nine `core` cases carry no group at all, being the generated-model test and the eight response-wrapper tests. The ADR on the test taxonomy records the alternatives and the label mapping.
 
 ## 8. Evidence discipline
 
-Every expected value in the suite comes from a measurement of the live service, not from the OpenAPI document. The document declares only `200` responses, even for `POST` and `DELETE`, and no schema declares `required` fields. It cannot decide status codes, required fields or error shapes. The measured behaviour is recorded in the test that asserts it, and the reasoning in the ADRs.
+Every expected value in the suite comes from the contract: RFC 9110, the problem-details shape, or the committed OpenAPI schema. A measurement of the live service is evidence for the defect report, never the source of an expected value. The schema declares only `200` responses, even for `POST` and `DELETE`, and no schema declares `required` fields, so it cannot decide status codes, required fields or error shapes; RFC 9110 can, and the schema decides the field types and the absence of `required`.
 
 The rules that follow from that:
 
-- An assertion encodes measured behaviour. If a test fails, the first response is to re-probe the live service, not to change the assertion. The plan states that a previously green test that reds is re-probed once and reported before any assertion is edited.
-- The service is never worked around. There is no fallback payload, no response normalisation, no retry, and no relaxed assertion. The service is not ours to fix.
-- There are no retries. The Surefire POM contains no `rerunFailingTestsCount` or retry plugin (`pom.xml`). `dynamicData` is an exclusion group for CI, not a retry mechanism.
-- Empty bodies are handled, not parsed. `ApiResponse` guards `json()`, `bodyAs()` and `bodyAsList()` with `requireBody()` and throws `IllegalStateException` naming the status. `ApiResponseEdgeTest` pins this against a locally built empty `200`, so the test states the wrapper's rule without depending on which endpoint returns one; `BooksDeleteTest` asserts the live `DELETE /Books/1` shape.
+- An assertion encodes a requirement. When a test fails, the assertion is not the thing to change: the failure is either a defect in the service or a misreading of the contract, and the response body, the RFC and the schema settle which.
+- The service is never worked around. There is no fallback payload, no response normalisation, no retry, and no relaxed assertion. A requirement the service misses stays failing and is listed in the Defects section of the `README.md`.
+- There are no retries. The Surefire POM contains no `rerunFailingTestsCount` or retry plugin (`pom.xml`), and no group is excluded from the CI run.
+- Empty bodies are handled, not parsed. `ApiResponse` guards `json()`, `bodyAs()` and `bodyAsList()` with `requireBody()` and throws `IllegalStateException` naming the status. `ApiResponseEdgeTest` pins this against a locally built empty `200`, so the test states the wrapper's rule without depending on which endpoint returns one; `BooksDeleteTest` pins the live `DELETE` shape as a defect.
 - Absent `Content-Type` is asserted from the header map only. `ApiResponseAssert.hasNoContentType()` reads `contentType()` and never parses the body. `ApiResponseEdgeTest.absentContentTypeDoesNotParseBody` pins this against a locally built `405` with no content type, and `ProtocolTest` pins the live `405`.
-- The zero date from an empty `PUT` is asserted through JsonPath, because the generated `OffsetDateTime` cannot represent a value without an offset.
 
 Known limits, recorded rather than hidden:
 
@@ -284,14 +284,14 @@ Known limits, recorded rather than hidden:
 | A request with no `Content-Type` header cannot be sent. | RestAssured wraps a `String` body in an Apache `StringEntity` whose content type is `text/plain; charset=ISO-8859-1`, and `RequestEntityProxy` re-adds it at execution time. A `byte[]` body emits `application/octet-stream`. The `415` contract is pinned with `text/plain` instead. |
 | `HEAD /Books/1` is not tested. | The service blocks for about 25 seconds before returning `405`. A timeout test would encode the client, not the contract. |
 | The Authors population is not asserted by total. | The service regenerates it per request; totals were measured between 586 and 629. |
-| A network outage reads as a test failure. | The suite runs against the public host and has no retry. The planned CI health gate fails before the suite so a dead host is distinguishable from a contract failure. |
+| A network outage reads as a test failure. | The suite runs against the public host and has no retry. The CI health gate fails before the suite so a dead host is distinguishable from a contract failure. |
 | There is no mock or stub. | The purpose is to test the live contract. |
 
 The ADR on no retries records the alternatives and the absent-`Content-Type` limit in full.
 
 ## 9. Current state and what is planned
 
-The work was planned in 17 tasks. The first sixteen are implemented in the committed tree; task 17 covers the public repository and its Pages settings and is not done yet.
+The work was planned in 21 tasks. The first twenty are implemented in the committed tree. Task 17, the public repository and its Pages settings, is not done yet.
 
 | Task | Scope | State |
 |---|---|---|
@@ -312,6 +312,12 @@ The work was planned in 17 tasks. The first sixteen are implemented in the commi
 | 15 | `.github/workflows/api-tests.yml` and Pages | Built |
 | 16 | `README.md` | Built |
 | 17 | Public repository and Pages settings | Planned |
+| 18 | Contract-first rewrite of the write tests: Books create, update, delete and Authors write | Built |
+| 19 | `Location` parsing and `hasStatusOneOf` in the HTTP layer | Built |
+| 20 | Red-gate CI: failure-ignore run, defect step, `always()` deploy | Built |
+| 21 | Docs: `README.md`, this document, ADR-0014, ADR-0015 | Built |
+
+The contract-first revision rewrote the write-test classes and the cross-service class. Of the 91 cases, 25 now assert a requirement the demo misses and fail, 10 record measured behaviour no contract decides, and the remaining 56 assert requirements it meets.
 
 The `authors` module has three test classes, `AuthorsReadTest`, `AuthorsWriteTest` and `AuthorsByBookTest`, and a `data/AuthorsData` fixture class. The `books` module has seven test classes and a `BooksData` fixture class under `books/src/test/java/io/github/tasostilsi/bookstore/books/data/`; two of the seven sit in a `protocol` subpackage. The `core` module has the configuration, HTTP, client and test classes listed in section 3, plus the generated models under `core/target/generated-sources/openapi`. The repository carries the `README.md`, the CI workflow at `.github/workflows/api-tests.yml`, and the documentation under `docs/`.
 
@@ -328,25 +334,27 @@ Configuration keys (`core/src/main/java/io/github/tasostilsi/bookstore/config/Ap
 | Allure results directory | `${maven.multiModuleProjectDirectory}/target/allure-results` | Set in `pom.xml` under Surefire `systemPropertyVariables`; change it there. |
 | Allure report CLI | 3.17.0 | `allure.reportVersion` property in `pom.xml`. |
 
-The build uses the committed Maven wrapper, which resolves Maven 3.9.16 (`.mvn/wrapper/maven-wrapper.properties`). The compiler targets Java 17 with `<parameters>true</parameters>` (`pom.xml`). The local run used JDK 25; the planned CI uses JDK 21.
+The build uses the committed Maven wrapper, which resolves Maven 3.9.16 (`.mvn/wrapper/maven-wrapper.properties`). The compiler targets Java 17 with `<parameters>true</parameters>` (`pom.xml`). CI uses JDK 21.
 
 Commands:
 
 ```bash
-# Run the whole reactor, then combine the results into one static report. Maven re-enters the
-# root project after the last module, so the aggregate sees this run's results.
-./mvnw -B clean verify allure:aggregate
+# Run the whole reactor, then combine the results into one static report. Failures are ignored
+# so Maven does not stop at the first failing module and skip the rest; the failing tests are
+# the deliverable, so the local exit stays 0. Maven re-enters the root project after the last
+# module, so the aggregate sees this run's results.
+./mvnw -B -Dmaven.test.failure.ignore=true clean verify allure:aggregate
 
 # Or serve the same results in a browser, from the repository root. Every module writes into
 # target/allure-results (pom.xml), so this is the whole suite; it serves until Ctrl-C.
 ./mvnw -B allure:serve
 
+# Run only the defect report, across the whole reactor.
+./mvnw -B -Dgroups=defect -Dmaven.test.failure.ignore=true test
+
 # Run one module with its dependencies. -am also runs core's tests, including the live
 # cross-service class, so this is not an offline run.
-./mvnw -B -pl books -am verify
-
-# Run one group across the whole reactor. A module alone cannot resolve the core snapshot.
-./mvnw -B -Dgroups=deviation test
+./mvnw -B -Dmaven.test.failure.ignore=true -pl books -am verify
 
 # Run one offline class.
 ./mvnw -B -pl core -Dtest=ModelDeserialisationTest test
