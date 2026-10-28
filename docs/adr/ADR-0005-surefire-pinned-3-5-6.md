@@ -27,7 +27,7 @@ Put the reason in an XML comment next to the property, so a dependency bot or a 
 - The version is visible in the build output: `surefire:3.5.6:test`.
 - A dependency bot must not bump this property without re-running the duplicate check. The comment is the guard.
 - Upgrading is a deliberate act: run the suite, count the result files per method, and confirm the report's retry count is zero before changing the property.
-- The Allure result directory is set through a Surefire system property, `allure.results.directory=${project.build.directory}/allure-results`. That configuration is independent of the Surefire version and remains in place.
+- The Allure result directory is set through a Surefire system property, `allure.results.directory=${maven.multiModuleProjectDirectory}/target/allure-results`. That configuration is independent of the Surefire version and remains in place.
 
 ## Alternatives considered and why rejected
 

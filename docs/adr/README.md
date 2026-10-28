@@ -16,9 +16,10 @@ Each record covers one decision. The format is Title, Status, Context, Decision,
 | [ADR-0010](ADR-0010-group-based-test-taxonomy.md) | Group-based test taxonomy and Allure label mapping | Accepted |
 | [ADR-0011](ADR-0011-no-retries-and-no-workarounds.md) | No retries and no workarounds for service behaviour | Accepted |
 | [ADR-0012](ADR-0012-invariants-for-regenerated-authors-data.md) | Invariants instead of values for regenerated Authors data | Accepted |
+| [ADR-0013](ADR-0013-random-payloads-from-generated-models.md) | Random payloads from the generated models, with a logged seed | Accepted |
 
 ## Reading order
 
-For a first pass, read ADR-0001 (module layout), ADR-0007 (client), ADR-0008 (assertions) and ADR-0010 (groups). The remaining records explain the toolchain, the reporting stack, the model generation, and the evidence rules that the tests follow.
+For a first pass, read ADR-0001 (module layout), ADR-0007 (client), ADR-0008 (assertions) and ADR-0010 (groups). The remaining records explain the toolchain, the reporting stack, the model generation, the payload data, and the evidence rules that the tests follow.
 
 Each ADR records what it costs as well as what it buys, in its Consequences section.

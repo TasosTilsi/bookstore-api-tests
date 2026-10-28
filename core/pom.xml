@@ -35,6 +35,10 @@
       <groupId>io.qameta.allure</groupId>
       <artifactId>allure-rest-assured</artifactId>
     </dependency>
+    <dependency>
+      <groupId>net.datafaker</groupId>
+      <artifactId>datafaker</artifactId>
+    </dependency>
   </dependencies>
 
   <build>

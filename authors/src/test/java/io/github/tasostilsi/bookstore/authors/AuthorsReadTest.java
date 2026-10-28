@@ -68,7 +68,7 @@ public class AuthorsReadTest {
     @Test(groups = "contract")
     public void getStableLowIdReturnsAuthor() {
         ApiResponse r = Api.authors().get(STABLE_AUTHOR_ID);
-        r.assertThat().hasStatus(200).hasField("id", STABLE_AUTHOR_ID);
+        r.assertThat().hasStatus(200).isVersionedJson().hasField("id", STABLE_AUTHOR_ID);
         assertThat(r.json().getMap("$").keySet(), containsInAnyOrder(
                 "id", "idBook", "firstName", "lastName"));
         assertThat(r.json().getInt("idBook"), allOf(greaterThanOrEqualTo(1), lessThanOrEqualTo(200)));

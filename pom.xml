@@ -32,6 +32,8 @@
     <jackson.version>2.22.4</jackson.version>
     <jakarta.annotation-api.version>3.0.0</jakarta.annotation-api.version>
     <aspectj.version>1.9.26</aspectj.version>
+    <!-- Not javafaker 1.0.2: last released 2020 and carries SnakeYAML 1.23 (CVE-2022-1471). -->
+    <datafaker.version>2.4.3</datafaker.version>
   </properties>
 
   <dependencyManagement>
@@ -72,6 +74,11 @@
         <groupId>com.fasterxml.jackson.datatype</groupId>
         <artifactId>jackson-datatype-jsr310</artifactId>
         <version>${jackson.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>net.datafaker</groupId>
+        <artifactId>datafaker</artifactId>
+        <version>${datafaker.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
@@ -115,7 +122,9 @@
           <configuration>
             <argLine>-javaagent:"${settings.localRepository}/org/aspectj/aspectjweaver/${aspectj.version}/aspectjweaver-${aspectj.version}.jar"</argLine>
             <systemPropertyVariables>
-              <allure.results.directory>${project.build.directory}/allure-results</allure.results.directory>
+              <!-- One directory for the whole reactor. allure:serve reads a single path, so per-module
+                   directories could only ever be served one module at a time. -->
+              <allure.results.directory>${maven.multiModuleProjectDirectory}/target/allure-results</allure.results.directory>
             </systemPropertyVariables>
           </configuration>
         </plugin>

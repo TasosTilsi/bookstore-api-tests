@@ -11,7 +11,7 @@ The client layer must also hide the HTTP library from the `books` and `authors` 
 
 ## Decision
 
-Use RestAssured 6.3.0 at compile scope in `core` (`core/pom.xml`). Build the shared request specification in `ApiSpec` with `given()`, the base URI, timeouts, the `AllureRestAssured` filter and optional logging (`core/src/main/java/io/github/tasostilsi/bookstore/client/ApiSpec.java`). Use RestAssured `JsonPath` for path-based assertions in `ApiResponse`.
+Use RestAssured 6.3.0 at compile scope in `core` (`core/pom.xml`). Build the shared request specification in `ApiSpec` with `given()`, the base URI, timeouts, redirect following off, the `AllureRestAssured` filter and optional logging (`core/src/main/java/io/github/tasostilsi/bookstore/client/ApiSpec.java`). Use RestAssured `JsonPath` for path-based assertions in `ApiResponse`. Redirect following is RestAssured's default and would resolve a 3xx before any assertion could see it, which contradicts ADR-0009.
 
 Declare `jackson-databind` and `jackson-datatype-jsr310` explicitly at compile scope. RestAssured marks Jackson optional, and the generated models and `ApiClient` import it from the `core` main source root.
 
@@ -21,7 +21,7 @@ Declare `jackson-databind` and `jackson-datatype-jsr310` explicitly at compile s
 - RestAssured 6.x requires Java 17, which matches the compiler `release` setting.
 - Hamcrest and JsonPath arrive transitively. No AssertJ dependency is declared.
 - `allure-rest-assured` 3.0.1 is declared at compile scope in `core` because `ApiSpec` uses `AllureRestAssured` and the client terminals use `@Step`. A test-scoped jar would not be on the main compile classpath.
-- `ApiSpec` sets no default `Content-Type`. The body-bearing client calls set the one `ApiSpec.JSON` constant, `application/json; charset=utf-8`, and the `create(String, String)` overload sets the caller's value. The consequence, that RestAssured cannot send a request with no `Content-Type` at all, is recorded in ADR-0011.
+- `ApiSpec` sets no default `Content-Type`. The body-bearing client calls set the one `ApiSpec.JSON` constant, `application/json; charset=utf-8`, and the `create(String, String)` overload sets the caller's value. A generated model is serialised by `ApiSpec.body`, a copy of the generated Jackson mapper with nulls omitted, before it reaches RestAssured (ADR-0013). The consequence, that RestAssured cannot send a request with no `Content-Type` at all, is recorded in ADR-0011.
 - RestAssured normalises an absent `Content-Type` to an empty string through `getContentType()`. `ApiResponse.contentType()` therefore reads the raw header so the wrapper can distinguish absent from empty (`core/src/main/java/io/github/tasostilsi/bookstore/http/ApiResponse.java`).
 
 ## Alternatives considered and why rejected

@@ -2,6 +2,8 @@ package io.github.tasostilsi.bookstore.http;
 
 import io.restassured.path.json.JsonPath;
 
+import java.time.OffsetDateTime;
+
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
@@ -59,6 +61,14 @@ public final class ApiResponseAssert {
 
     public ApiResponseAssert hasField(String jsonPath, Object expected) {
         assertThat(response.json().get(jsonPath), is(expected));
+        return this;
+    }
+
+    // The service keeps 7 fractional digits, so the echoed string is not equal to the sent one;
+    // the instant is. Comparing the string would fail on a sub-second difference that is not real.
+    public ApiResponseAssert hasInstantField(String jsonPath, OffsetDateTime expected) {
+        assertThat(OffsetDateTime.parse(response.json().getString(jsonPath)).toInstant(),
+                is(expected.toInstant()));
         return this;
     }
 

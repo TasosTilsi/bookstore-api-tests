@@ -7,13 +7,17 @@ The suite's job is to report what the service does, not to make it look conventi
 ## Quick start
 
 ```bash
-./mvnw -B clean verify                                  # 83 cases across three modules
-./mvnw -B allure:aggregate && ./mvnw -B allure:serve    # build and serve the report
+./mvnw -B clean verify allure:aggregate    # 87 cases, then one static report
+./mvnw -B allure:serve                     # or serve the same 87 cases, from the repo root
 ```
 
-The report must be served. Opening `target/site/allure-maven-plugin/index.html` from disk renders an empty page, because the report fetches its data over HTTP.
+Maven runs the three modules' tests first and then re-enters the root project to run the aggregator goal, which is why the log shows `allure:aggregate` under `[5/4]` after the last module. The report therefore reads the results the same invocation just produced. CI keeps the aggregate in its own step with `if: always()` instead, so a red run still publishes its report.
 
-`clean` matters locally: `allure-results` accumulates across runs, so a report built without it shows tests that no longer exist.
+All three modules write their Allure results into `target/allure-results` at the repository root (`pom.xml`), so `allure:serve` started there reads all 87 and keeps serving until Ctrl-C. `allure:aggregate` plus `allure open` produces the same content as a static report. Run `allure:serve` from the root: from a module directory there are no results to read.
+
+The report must be served either way. Opening `target/site/allure-maven-plugin/index.html` from disk renders an empty page, because the report fetches its data over HTTP. `allure:aggregate` downloads the Allure CLI into `.allure/` on its first run, which is the binary the second line uses; `npx allure open <dir>` works too.
+
+`clean` matters locally: `target/allure-results` accumulates across runs, so a report built without it shows tests that no longer exist.
 
 JDK 17 or newer is required (the compiler targets 17). The Maven wrapper pins the Maven version, so no local install is needed. The suite talks to the live host; the base URI, timeouts and logging level are described in [Configuration](#configuration).
 
@@ -28,12 +32,13 @@ flowchart LR
     A -->|test scope| C
 ```
 
-`core` holds the configuration, the HTTP layer, the two fluent clients, the generated models, the infrastructure tests and the cross-service test. `books` and `authors` hold test classes and their JSON fixtures, nothing else. The dependency arrow points one way, so a service module cannot reach into another service module.
+`core` holds the configuration, the HTTP layer, the two fluent clients, the generated models, the payload factories, the infrastructure tests and the cross-service test. `books` and `authors` hold test classes and their own data factories, nothing else. The dependency arrow points one way, so a service module cannot reach into another service module.
 
 ```text
 core/src/main/java/io/github/tasostilsi/bookstore/
   client/      Api, BooksApi, AuthorsApi, ApiSpec
   config/      ApiConfig, ApiPaths
+  data/        RandomData
   http/        ApiResponse, ApiResponseAssert
   model/       generated from the committed OpenAPI snapshot
 core/src/test/java/io/github/tasostilsi/bookstore/
@@ -55,7 +60,7 @@ authors/src/test/java/io/github/tasostilsi/bookstore/authors/
 |---|---|---|
 | `BooksReadTest` | 15 | `contract`, `dynamicData` |
 | `BooksCreateTest` | 15 | `contract`, `deviation`, `validationGap` |
-| `BooksUpdateTest` | 7 | `contract`, `deviation` |
+| `BooksUpdateTest` | 8 | `contract`, `deviation` |
 | `BooksDeleteTest` | 5 | `contract`, `deviation` |
 | `BooksValidationTest` | 5 | `contract`, `deviation` |
 | `ProtocolTest` | 4 | `contract` |
@@ -65,7 +70,7 @@ authors/src/test/java/io/github/tasostilsi/bookstore/authors/
 | `AuthorsByBookTest` | 9 | `contract` |
 | `BooksAuthorsConsistencyTest` | 2 | `crossservice`, `deviation` |
 
-Eighty cases in the eleven functional classes, plus three in `core` that prove the infrastructure rather than the API: `ApiResponseEdgeTest` (empty body, absent content type) and `ModelDeserialisationTest`. The `books` and `authors` clients are exercised through `@Step`-annotated methods, so every Allure result carries the operation it performed.
+Seventy-nine cases in the eleven functional classes, plus eight in `core` that prove the infrastructure rather than the API: `ApiResponseEdgeTest` (empty body, absent content type, and that the assertion chain rejects a wrong value) and `ModelDeserialisationTest`. The `books` and `authors` clients are exercised through `@Step`-annotated methods, so every Allure result carries the operation it performed.
 
 The groups are the selection mechanism:
 
@@ -104,6 +109,7 @@ Each row was measured on the live service before it was asserted. The test named
 | `PUT` targets the resource named in the path. | The body's `id` wins over the path id. | `updateUsesBodyIdNotPathId` in both write classes |
 | `PUT` on an absent resource returns `404`, or creates it. | Returns `200` echoing the body. | `updateSucceedsForAbsentId` |
 | `PUT` replaces the resource; omitted fields are not silently cleared. | Omitted fields are set to null. | `updateNullsOmittedFields` |
+| A successful `PUT` changes the resource it targets. | Changes nothing; a later `GET` returns the stored book. | `updateDoesNotPersist` |
 | `DELETE` returns `204` when no representation is returned. | Returns `200` with zero bytes and no `Content-Type`. | `deleteExistingReturns200WithEmptyBody` |
 | `DELETE` removes the resource. | Removes nothing; the resource is still there afterwards. | `deleteDoesNotRemoveResource`, `deleteReturns200AndRemovesNothing` |
 | `DELETE` on an absent resource returns `404`. | Returns `200`. | `deleteSucceedsForAbsentId` |
@@ -120,9 +126,25 @@ The service publishes OpenAPI 3.0.1 at `/swagger/v1/swagger.json`. A snapshot is
 scripts/refresh-openapi-spec.sh    # re-download the spec, validate it, regenerate
 ```
 
-The script fetches with `curl -fsSL`, checks the document with `jq` before it replaces the tracked file, and prints the diff. The models are an oracle for responses only; request payloads stay as JSON strings in the fixtures, so a test can send what the spec does not describe.
+The script fetches with `curl -fsSL`, checks the document with `jq` before it replaces the tracked file, and prints the diff.
+
+Valid request payloads are built from the same generated types, so a snapshot change that renames a field breaks the build instead of quietly sending the old shape. Empty, malformed, array, wrong-type and unknown-field bodies stay as JSON strings, because a typed constructor cannot express them. See [Random payloads](#random-payloads).
 
 `publishDate` is the one response field that does not fit its generated type. A normal `GET /Books/{id}` returns a UTC-offset timestamp that binds as `OffsetDateTime`. A partial or empty `PUT` returns `0001-01-01T00:00:00`, which has no offset and cannot be parsed into that type. The update test asserts that value through JsonPath, and says in a `@Description` why.
+
+## Random payloads
+
+`BooksData.book()` and `AuthorsData.author()` return generated models filled from [datafaker](https://www.datafaker.net): title, description, excerpt, page count, first name and last name differ on every run, and every test asserts the echo against the instance it sent rather than against a literal. Ids come from ranges the service does not serve (books 201..8999, authors 7000..8999), so a create-then-`GET` pair cannot read stored data by accident.
+
+The generator is seeded once per JVM from `-Ddata.seed`, or from a fresh random seed when the property is absent. The seed is printed at startup and attached to every test that generated a payload:
+
+```text
+[data] faker seed -62509015588610612 (rerun with -Ddata.seed=-62509015588610612)
+```
+
+Passing that value back reproduces the data, provided the test classes execute in the same order, because one generator serves the whole JVM. Each module runs in its own JVM and prints its own seed; `-Ddata.seed` sets all three.
+
+Two details exist because of measured service behaviour. Dates are truncated to microseconds before they are sent, because the service keeps 7 fractional digits and a nanosecond value would come back changed. Unset fields are omitted rather than sent as `null`, because a `POST` with `"id":null` answers `400` while an omitted field binds to the default.
 
 ## The other three resources
 
@@ -136,6 +158,7 @@ The same spec declares `CoverPhotos` (`/api/v1/CoverPhotos`), `Activities` (`/ap
 | Connect timeout | 5000 ms | `-Dapi.connectTimeoutMs=...` |
 | Socket timeout | 10000 ms | `-Dapi.socketTimeoutMs=...` |
 | Request/response logging | off | `-Dapi.logAll=true` |
+| Data seed | a fresh random value per JVM, printed at startup | `-Ddata.seed=...` |
 
 ## Known limits
 
@@ -148,10 +171,10 @@ The same spec declares `CoverPhotos` (`/api/v1/CoverPhotos`), `Activities` (`/ap
 
 `.github/workflows/api-tests.yml` runs on every push and pull request.
 
-The `test` job checks the host answers `200`, runs `./mvnw -B clean verify` across the whole reactor once, aggregates the Allure report, and then guards the artifact: the aggregate goal warns about a module whose results are missing and still exits zero, so the job fails if fewer than 83 result files were produced. It also fails if no result carries the named step `GET /Books`, which is what proves the AspectJ weaver was attached; a count alone would stay green with the weaver broken. Surefire XML is attached as a JUnit report, and the results, the XML and the rendered report are uploaded as artifacts on every run, including a failed one.
+The `test` job checks the host answers `200`, runs `./mvnw -B clean verify` across the whole reactor once, aggregates the Allure report, and then guards the artifact: the aggregate goal warns about a module whose results are missing and still exits zero, so the job fails if fewer than 87 result files were produced. It also fails if no result carries the named step `GET /Books`, which is what proves the AspectJ weaver was attached; a count alone would stay green with the weaver broken. Surefire XML is attached as a JUnit report, and the results, the XML and the rendered report are uploaded as artifacts on every run, including a failed one.
 
 The `deploy` job runs only for a push to `main`. It publishes the report artifact the `test` job already built, rather than re-running the suite: Pages then shows the same run whose results are attached to the workflow, and a second live run cannot fail after a green test job. Pages holds the newest report only.
 
 ## Further reading
 
-`docs/design.md` describes the design and the reasoning; `docs/adr/` holds twelve decision records, among them the measurement-before-assertion rule (`ADR-0009`), the group taxonomy (`ADR-0010`) and the no-retries rule (`ADR-0011`).
+`docs/design.md` describes the design and the reasoning; `docs/adr/` holds thirteen decision records, among them the measurement-before-assertion rule (`ADR-0009`), the group taxonomy (`ADR-0010`), the no-retries rule (`ADR-0011`) and the random-payload rule (`ADR-0013`).

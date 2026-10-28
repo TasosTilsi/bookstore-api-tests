@@ -15,6 +15,7 @@ import static io.github.tasostilsi.bookstore.books.data.BooksData.BOOK_1_TITLE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 
 @Epic("Bookstore API")
 @Feature("Books delete")
@@ -48,8 +49,10 @@ public class BooksDeleteTest {
     public void deleteCollectionReturns405() {
         ApiResponse r = Api.request("DELETE", ApiPaths.BOOKS);
         r.assertThat().hasStatus(405).hasHeader("Allow").hasNoContentType().hasEmptyBody();
-        // RFC 9110 requires Allow on a 405. Measured 2026-10-27: "GET, POST"; order is not asserted.
-        assertThat(r.header("Allow"), allOf(containsString("GET"), containsString("POST")));
+        // RFC 9110 requires Allow on a 405. Measured 2026-10-27: "GET, POST"; order is not asserted,
+        // but the rejected verb must not appear in its own Allow list.
+        assertThat(r.header("Allow"), allOf(
+                containsString("GET"), containsString("POST"), not(containsString("DELETE"))));
     }
 
     @Test(groups = "contract")

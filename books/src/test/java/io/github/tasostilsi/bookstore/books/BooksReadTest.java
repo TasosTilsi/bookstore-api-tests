@@ -64,11 +64,15 @@ public class BooksReadTest {
     @Test(groups = "contract")
     public void getExistingBookReturnsIt() {
         ApiResponse r = Api.books().get(1);
-        r.assertThat().hasStatus(200)
+        r.assertThat().hasStatus(200).isVersionedJson()
                 .hasField("id", 1).hasField("title", BOOK_1_TITLE)
                 .hasField("pageCount", BOOK_1_PAGE_COUNT).hasNonNullField("description");
         assertThat(r.json().getMap("$").keySet(), containsInAnyOrder(
                 "id", "title", "description", "pageCount", "excerpt", "publishDate"));
+        // Binds through response.as rather than JsonPath, which is the path bodyAsList does not cover.
+        Book book = r.bodyAs(Book.class);
+        assertThat(book.getTitle(), is(BOOK_1_TITLE));
+        assertNotNull(book.getPublishDate());
     }
 
     @Test(groups = "contract")

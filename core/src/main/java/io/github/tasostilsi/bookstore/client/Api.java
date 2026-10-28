@@ -18,6 +18,11 @@ public final class Api {
         return request(method, path, null, null, headers);
     }
 
+    /** Sends a generated model, serialised through the non-null mapper in {@link ApiSpec}. */
+    public static ApiResponse request(String method, String path, Object body, Map<String, String> headers) {
+        return request(method, path, ApiSpec.body(body), ApiSpec.JSON, headers);
+    }
+
     public static ApiResponse request(String method, String path, String body,
                                       String contentType, Map<String, String> headers) {
         RequestSpecification spec = ApiSpec.request();

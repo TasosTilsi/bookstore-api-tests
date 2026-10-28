@@ -1,7 +1,9 @@
 package io.github.tasostilsi.bookstore.books;
 
-import io.github.tasostilsi.bookstore.client.Api;
 import io.github.tasostilsi.bookstore.books.data.BooksData;
+import io.github.tasostilsi.bookstore.client.Api;
+import io.github.tasostilsi.bookstore.http.ApiResponse;
+import io.github.tasostilsi.bookstore.model.Book;
 import io.qameta.allure.Epic;
 import io.qameta.allure.Feature;
 import io.qameta.allure.Link;
@@ -9,12 +11,12 @@ import io.qameta.allure.Severity;
 import io.qameta.allure.SeverityLevel;
 import org.testng.annotations.Test;
 
+import java.time.OffsetDateTime;
+
 import static io.github.tasostilsi.bookstore.books.data.BooksData.ARRAY_BODY;
 import static io.github.tasostilsi.bookstore.books.data.BooksData.EMPTY_BODY;
 import static io.github.tasostilsi.bookstore.books.data.BooksData.EMPTY_OBJECT;
-import static io.github.tasostilsi.bookstore.books.data.BooksData.FULL_BOOK;
 import static io.github.tasostilsi.bookstore.books.data.BooksData.MALFORMED_BODY;
-import static io.github.tasostilsi.bookstore.books.data.BooksData.NO_ID_BOOK;
 import static io.github.tasostilsi.bookstore.books.data.BooksData.UNICODE_TITLE;
 import static io.github.tasostilsi.bookstore.books.data.BooksData.UNKNOWN_FIELD_BOOK;
 import static io.github.tasostilsi.bookstore.books.data.BooksData.ZERO_DATE_DEFAULT;
@@ -28,17 +30,25 @@ public class BooksCreateTest {
     @Test(groups = "deviation")
     @Feature("Contract deviations")
     public void createEchoesPayloadWith200AndNoLocation() {
-        Api.books().create(FULL_BOOK).assertThat().hasStatus(200).isVersionedJson().hasNoHeader("Location")
-                .hasField("id", 5000).hasField("title", "Book 5000").hasField("pageCount", 10)
-                .hasField("description", "d").hasField("excerpt", "e")
-                .hasField("publishDate", "2026-01-01T00:00:00Z");
+        Book book = BooksData.book();
+        ApiResponse r = Api.books().create(book);
+        r.assertThat().hasStatus(200).isVersionedJson().hasNoHeader("Location")
+                .hasField("id", book.getId()).hasField("title", book.getTitle())
+                .hasField("pageCount", book.getPageCount())
+                .hasField("description", book.getDescription()).hasField("excerpt", book.getExcerpt())
+                .hasInstantField("publishDate", book.getPublishDate());
     }
 
     @Test(groups = "deviation")
     @Feature("Contract deviations")
     public void createDoesNotPersist() {
-        Api.books().create(FULL_BOOK).assertThat().hasStatus(200).hasField("id", 5000);
-        Api.books().get(5000).assertThat().hasStatus(404);
+        Book book = BooksData.book();
+        Api.books().create(book).assertThat().hasStatus(200)
+                .hasField("id", book.getId()).hasField("title", book.getTitle())
+                .hasField("pageCount", book.getPageCount())
+                .hasField("description", book.getDescription()).hasField("excerpt", book.getExcerpt())
+                .hasInstantField("publishDate", book.getPublishDate());
+        Api.books().get(book.getId()).assertThat().hasStatus(404);
     }
 
     @Test(groups = {"deviation", "validationGap"})
@@ -55,26 +65,30 @@ public class BooksCreateTest {
     @Feature("Contract deviations")
     @Feature("Validation gaps")
     public void createWithoutIdReturnsIdZero() {
-        Api.books().create(NO_ID_BOOK).assertThat().hasStatus(200).isVersionedJson().hasField("id", 0)
-                .hasField("title", "no-id");
+        Book book = BooksData.bookWithoutId();
+        Api.books().create(book).assertThat().hasStatus(200).isVersionedJson().hasField("id", 0)
+                .hasField("title", book.getTitle()).hasField("pageCount", book.getPageCount())
+                .hasField("description", book.getDescription()).hasField("excerpt", book.getExcerpt())
+                .hasInstantField("publishDate", book.getPublishDate());
     }
 
     @Test(groups = "contract")
     public void createWithZeroLengthBodyReturns400() {
         // An empty body fails before model binding, so the error map is keyed on the empty string.
-        Api.books().create(EMPTY_BODY).assertThat().hasStatus(400).isProblemJsonWithoutVersion()
-                .hasNonNullField("errors['']");
+        Api.books().create(EMPTY_BODY).assertThat()
+                .hasStatus(400).isProblemJsonWithoutVersion().hasNonNullField("errors['']");
     }
 
     @Test(groups = "contract")
     public void createWithMalformedJsonReturns400() {
-        Api.books().create(MALFORMED_BODY).assertThat().hasStatus(400).isProblemJsonWithoutVersion()
-                .hasNonNullField("errors['$.title']");
+        Api.books().create(MALFORMED_BODY).assertThat()
+                .hasStatus(400).isProblemJsonWithoutVersion().hasNonNullField("errors['$.title']");
     }
 
     @Test(groups = "contract")
     public void createWithArrayBodyReturns400() {
-        Api.books().create(ARRAY_BODY).assertThat().hasStatus(400).isProblemJsonWithoutVersion();
+        Api.books().create(ARRAY_BODY).assertThat()
+                .hasStatus(400).isProblemJsonWithoutVersion();
     }
 
     @Test(groups = "contract")
@@ -91,35 +105,51 @@ public class BooksCreateTest {
 
     @Test(groups = "contract")
     public void createWithPlainTextContentTypeReturns415() {
-        Api.books().create(FULL_BOOK, "text/plain").assertThat().hasStatus(415).isProblemJsonWithoutVersion();
+        // 415 is chosen before the body is bound, so the payload itself is irrelevant here.
+        Api.books().create(EMPTY_OBJECT, "text/plain").assertThat().hasStatus(415).isProblemJsonWithoutVersion();
     }
 
     @Test(groups = {"deviation", "validationGap"})
     @Feature("Contract deviations")
     @Feature("Validation gaps")
     public void createSilentlyDropsUnknownFields() {
-        Api.books().create(UNKNOWN_FIELD_BOOK).assertThat().hasStatus(200).isVersionedJson().hasNoField("nonsense")
-                .hasField("id", 5000);
+        Api.books().create(UNKNOWN_FIELD_BOOK).assertThat()
+                .hasStatus(200).isVersionedJson().hasNoField("nonsense")
+                .hasField("id", 5000).hasField("title", "Book 5000").hasField("pageCount", 10)
+                .hasField("description", "d").hasField("excerpt", "e")
+                .hasInstantField("publishDate", OffsetDateTime.parse("2026-01-01T00:00:00Z"));
     }
 
     @Test(groups = "validationGap")
     @Feature("Validation gaps")
     public void createAcceptsNegativePageCount() {
-        Api.books().create("{\"title\":\"t\",\"pageCount\":-5}").assertThat()
-                .hasStatus(200).isVersionedJson().hasField("pageCount", -5);
+        Book book = BooksData.book().pageCount(-5);
+        Api.books().create(book).assertThat()
+                .hasStatus(200).isVersionedJson().hasField("id", book.getId())
+                .hasField("title", book.getTitle()).hasField("pageCount", -5)
+                .hasField("description", book.getDescription()).hasField("excerpt", book.getExcerpt())
+                .hasInstantField("publishDate", book.getPublishDate());
     }
 
     @Test(groups = "validationGap")
     @Feature("Validation gaps")
     public void createAcceptsVeryLongTitle() {
-        Api.books().create("{\"title\":\"" + BooksData.longTitle() + "\"}").assertThat()
-                .hasStatus(200).isVersionedJson().hasField("title", BooksData.longTitle());
+        Book book = BooksData.book().title(BooksData.longTitle());
+        Api.books().create(book).assertThat()
+                .hasStatus(200).isVersionedJson().hasField("id", book.getId())
+                .hasField("title", BooksData.longTitle()).hasField("pageCount", book.getPageCount())
+                .hasField("description", book.getDescription()).hasField("excerpt", book.getExcerpt())
+                .hasInstantField("publishDate", book.getPublishDate());
     }
 
     @Test(groups = "contract")
     public void createAcceptsUnicodeTitle() {
-        Api.books().create("{\"title\":\"" + UNICODE_TITLE + "\"}").assertThat()
-                .hasStatus(200).isVersionedJson().hasField("title", UNICODE_TITLE);
+        Book book = BooksData.book().title(UNICODE_TITLE);
+        Api.books().create(book).assertThat()
+                .hasStatus(200).isVersionedJson().hasField("id", book.getId())
+                .hasField("title", UNICODE_TITLE).hasField("pageCount", book.getPageCount())
+                .hasField("description", book.getDescription()).hasField("excerpt", book.getExcerpt())
+                .hasInstantField("publishDate", book.getPublishDate());
     }
 
     @Test(groups = "contract")

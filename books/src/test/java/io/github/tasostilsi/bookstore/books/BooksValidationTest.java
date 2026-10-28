@@ -40,8 +40,8 @@ public class BooksValidationTest {
     }
 
     @Test(groups = "contract")
-    @Description("a trailing slash answers 200 with the collection; the client follows redirects,"
-            + " so a 3xx would not be distinguishable here and is recorded as a known limit")
+    @Description("a trailing slash answers 200 with the collection; redirects are not followed, "
+            + "so a 3xx would surface here rather than be resolved")
     public void trailingSlashResolves() {
         Api.request("GET", ApiPaths.BOOKS + "/").assertThat().hasStatus(200).hasBodySize(200)
                 .hasField("[0].id", 1);

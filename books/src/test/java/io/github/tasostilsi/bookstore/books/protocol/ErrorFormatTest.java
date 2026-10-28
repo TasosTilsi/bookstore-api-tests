@@ -9,7 +9,7 @@ import io.qameta.allure.SeverityLevel;
 import org.testng.annotations.Test;
 
 import static io.github.tasostilsi.bookstore.books.data.BooksData.EMPTY_BODY;
-import static io.github.tasostilsi.bookstore.books.data.BooksData.FULL_BOOK;
+import static io.github.tasostilsi.bookstore.books.data.BooksData.EMPTY_OBJECT;
 
 /**
  * Canonical home of the error envelope. Its requests repeat other classes on purpose: the other
@@ -27,18 +27,23 @@ public class ErrorFormatTest {
     public void missingResourceBodyIsProblemJsonWithVersion() {
         Api.books().get(99999).assertThat().hasStatus(404).isProblemJson()
                 .hasContentTypeContaining("v=1.0")
-                .hasField("type", "https://tools.ietf.org/html/rfc7231#section-6.5.4");
+                .hasField("type", "https://tools.ietf.org/html/rfc7231#section-6.5.4")
+                .hasField("title", "Not Found");
     }
 
     @Test(groups = "contract")
     public void validationErrorBodyIsProblemJsonWithoutVersion() {
-        Api.books().update(1, EMPTY_BODY).assertThat().hasStatus(400).isProblemJsonWithoutVersion();
+        Api.books().update(1, EMPTY_BODY).assertThat().hasStatus(400).isProblemJsonWithoutVersion()
+                .hasField("type", "https://tools.ietf.org/html/rfc7231#section-6.5.1")
+                .hasField("title", "One or more validation errors occurred.");
     }
 
     @Test(groups = "contract")
     public void unsupportedMediaTypeBodyIsProblemJsonWithoutVersion() {
-        Api.books().create(FULL_BOOK, "text/plain").assertThat().hasStatus(415)
+        // 415 is chosen before the body is bound, so the payload itself is irrelevant here.
+        Api.books().create(EMPTY_OBJECT, "text/plain").assertThat().hasStatus(415)
                 .isProblemJsonWithoutVersion()
+                .hasField("type", "https://tools.ietf.org/html/rfc7231#section-6.5.13")
                 .hasField("title", "Unsupported Media Type");
     }
 }

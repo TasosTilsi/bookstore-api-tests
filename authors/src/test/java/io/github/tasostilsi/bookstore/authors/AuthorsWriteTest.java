@@ -1,6 +1,8 @@
 package io.github.tasostilsi.bookstore.authors;
 
+import io.github.tasostilsi.bookstore.authors.data.AuthorsData;
 import io.github.tasostilsi.bookstore.client.Api;
+import io.github.tasostilsi.bookstore.model.Author;
 import io.qameta.allure.Description;
 import io.qameta.allure.Epic;
 import io.qameta.allure.Feature;
@@ -9,9 +11,6 @@ import io.qameta.allure.Severity;
 import io.qameta.allure.SeverityLevel;
 import org.testng.annotations.Test;
 
-import static io.github.tasostilsi.bookstore.authors.data.AuthorsData.AUTHOR_FOREIGN_KEY_GAP;
-import static io.github.tasostilsi.bookstore.authors.data.AuthorsData.AUTHOR_NO_ID_BOOK;
-import static io.github.tasostilsi.bookstore.authors.data.AuthorsData.AUTHOR_WITH_ID;
 import static io.github.tasostilsi.bookstore.authors.data.AuthorsData.STABLE_AUTHOR_ID;
 
 @Epic("Bookstore API")
@@ -23,47 +22,63 @@ public class AuthorsWriteTest {
     @Test(groups = "deviation")
     @Feature("Contract deviations")
     public void createEchoesPayloadWith200AndNoLocation() {
-        Api.authors().create(AUTHOR_WITH_ID).assertThat().hasStatus(200).isVersionedJson()
-                .hasField("id", 7000).hasField("idBook", 1).hasField("firstName", "Ada")
-                .hasField("lastName", "Lovelace").hasNoHeader("Location");
+        Author author = AuthorsData.author();
+        Api.authors().create(author).assertThat().hasStatus(200).isVersionedJson()
+                .hasField("id", author.getId()).hasField("idBook", author.getIdBook())
+                .hasField("firstName", author.getFirstName())
+                .hasField("lastName", author.getLastName()).hasNoHeader("Location");
     }
 
     @Test(groups = {"deviation", "validationGap"})
     @Feature("Contract deviations")
     @Feature("Validation gaps")
     public void createWithoutIdBookDefaultsToZero() {
-        Api.authors().create(AUTHOR_NO_ID_BOOK).assertThat().hasStatus(200).isVersionedJson()
-                .hasField("id", 0).hasField("idBook", 0).hasField("firstName", "nobook");
+        Author author = AuthorsData.authorWithoutIdBook();
+        Api.authors().create(author).assertThat().hasStatus(200).isVersionedJson()
+                .hasField("id", 0).hasField("idBook", 0).hasField("firstName", author.getFirstName())
+                .hasField("lastName", author.getLastName());
     }
 
     @Test(groups = "validationGap")
     @Feature("Validation gaps")
     public void createAcceptsForeignKeyOutsideBookRange() {
-        Api.authors().create(AUTHOR_FOREIGN_KEY_GAP).assertThat().hasStatus(200).isVersionedJson()
-                .hasField("idBook", 99999);
+        Author author = AuthorsData.author().idBook(99999);
+        Api.authors().create(author).assertThat().hasStatus(200).isVersionedJson()
+                .hasField("id", author.getId()).hasField("idBook", 99999)
+                .hasField("firstName", author.getFirstName())
+                .hasField("lastName", author.getLastName());
     }
 
     @Test(groups = "deviation")
     @Feature("Contract deviations")
     public void createDoesNotPersist() {
-        Api.authors().create(AUTHOR_WITH_ID).assertThat().hasStatus(200).hasField("id", 7000);
-        Api.authors().get(7000).assertThat().hasStatus(404);
+        Author author = AuthorsData.author();
+        Api.authors().create(author).assertThat().hasStatus(200)
+                .hasField("id", author.getId()).hasField("idBook", author.getIdBook())
+                .hasField("firstName", author.getFirstName())
+                .hasField("lastName", author.getLastName());
+        Api.authors().get(author.getId()).assertThat().hasStatus(404);
     }
 
     @Test(groups = "contract")
     public void updateEchoesPayload() {
-        Api.authors().update(STABLE_AUTHOR_ID,
-                        "{\"id\":1,\"idBook\":7,\"firstName\":\"echo\",\"lastName\":\"check\"}")
-                .assertThat().hasStatus(200).isVersionedJson().hasField("id", 1).hasField("idBook", 7);
+        Author author = AuthorsData.author(1);
+        Api.authors().update(STABLE_AUTHOR_ID, author).assertThat()
+                .hasStatus(200).isVersionedJson().hasField("id", 1)
+                .hasField("idBook", author.getIdBook())
+                .hasField("firstName", author.getFirstName())
+                .hasField("lastName", author.getLastName());
     }
 
     @Test(groups = "deviation")
     @Feature("Contract deviations")
     @Description("the body id wins over the path id")
     public void updateUsesBodyIdNotPathId() {
-        Api.authors().update(STABLE_AUTHOR_ID,
-                        "{\"id\":7,\"idBook\":9,\"firstName\":\"x\",\"lastName\":\"y\"}")
-                .assertThat().hasStatus(200).hasField("id", 7).hasField("idBook", 9);
+        Author author = AuthorsData.author(7).idBook(9);
+        Api.authors().update(STABLE_AUTHOR_ID, author).assertThat()
+                .hasStatus(200).hasField("id", 7).hasField("idBook", 9)
+                .hasField("firstName", author.getFirstName())
+                .hasField("lastName", author.getLastName());
     }
 
     @Test(groups = "deviation")

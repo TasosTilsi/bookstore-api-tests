@@ -24,6 +24,11 @@ public class ApiResponseEdgeTest {
         return ApiResponse.of(new ResponseBuilder().setStatusCode(status).build());
     }
 
+    private static ApiResponse response(int status, String contentType, String body) {
+        return ApiResponse.of(new ResponseBuilder().setStatusCode(status)
+                .setContentType(contentType).setBody(body).build());
+    }
+
     @Test(description = "A 200 with zero bytes must say so, not fail inside a parser")
     public void emptyBodyAccessorsThrowIllegalStateException() {
         ApiResponse r = response(200);
@@ -41,5 +46,22 @@ public class ApiResponseEdgeTest {
     @Test(description = "A 405-shaped response with no Content-Type and an empty body is asserted without parsing the body")
     public void absentContentTypeDoesNotParseBody() {
         response(405).assertThat().hasStatus(405).hasNoContentType().hasEmptyBody();
+    }
+
+    @Test(description = "hasStatus accepts the measured status and nothing else")
+    public void hasStatusFailsWhenStatusDiffers() {
+        expectThrows(AssertionError.class, () -> response(201).assertThat().hasStatus(200));
+    }
+
+    @Test(description = "hasNullField fails on an absent key rather than passing on a null one")
+    public void hasNullFieldFailsWhenKeyIsAbsent() {
+        expectThrows(AssertionError.class, () -> response(200, "application/json; charset=utf-8; v=1.0",
+                "{\"id\":1}").assertThat().hasNullField("title"));
+    }
+
+    @Test(description = "isProblemJson compares the body status with the response status")
+    public void problemJsonFailsWhenBodyStatusDiffers() {
+        expectThrows(AssertionError.class, () -> response(400, "application/problem+json; charset=utf-8",
+                "{\"type\":\"t\",\"title\":\"t\",\"traceId\":\"x\",\"status\":404}").assertThat().isProblemJson());
     }
 }

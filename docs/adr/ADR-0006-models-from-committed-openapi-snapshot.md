@@ -28,7 +28,7 @@ Refresh the snapshot with `scripts/refresh-openapi-spec.sh`.
 - A build does not need the demo service to be reachable. It compiles against the committed snapshot.
 - Two builds from the same commit generate the same models. `hideGenerationTimestamp=true` removes the remaining source of variation.
 - The generated sources land in `core/target/generated-sources/openapi` and are not committed. Only the snapshot is tracked.
-- The models serve the response direction. `ApiResponse.bodyAs` and `bodyAsList` deserialise into them. Request payloads stay as JSON strings in the fixtures, because the service accepts empty, partial, malformed, array and wrong-type bodies that a typed constructor cannot express.
+- The models serve both directions. `ApiResponse.bodyAs` and `bodyAsList` deserialise into them, and the request factories build valid payloads from them. Empty, malformed, partial, array and wrong-type bodies stay JSON strings, because a typed constructor cannot express them; `Api` keeps a raw-string overload for each (ADR-0013).
 - `publishDate` is generated as `OffsetDateTime` (`core/target/generated-sources/openapi/src/main/java/io/github/tasostilsi/bookstore/model/Book.java`). A `PUT` with `{}` or a partial body returns `"0001-01-01T00:00:00"`, which has no offset and cannot bind to that type. The update test asserts that value through JsonPath instead.
 - A spec refresh changes a tracked file, so the diff is reviewable before it changes a test. The script also runs `./mvnw -B -pl core generate-sources` after replacing the snapshot, so the next compile uses the new models. It still touches only the snapshot and the build output under `target`.
 

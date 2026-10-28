@@ -24,10 +24,10 @@ The remaining planned work is infrastructure rather than coverage: the CI workfl
 
 | Area | Committed today | Plan target |
 |---|---|---|
-| `core` tests | 5 cases in 3 classes (`ApiResponseEdgeTest`, `ModelDeserialisationTest`, `BooksAuthorsConsistencyTest`) | Complete |
-| `books` tests | 54 cases across 7 classes | Complete |
+| `core` tests | 8 cases in 3 classes (`ApiResponseEdgeTest`, `ModelDeserialisationTest`, `BooksAuthorsConsistencyTest`) | Complete |
+| `books` tests | 55 cases across 7 classes | Complete |
 | `authors` tests | 24 cases in 3 classes (`AuthorsReadTest`, `AuthorsWriteTest`, `AuthorsByBookTest`) | Complete |
-| Reactor total | 72 methods, 83 cases | 72 methods, 83 cases |
+| Reactor total | 76 methods, 87 cases | 76 methods, 87 cases |
 
 The plan targeted 74 methods and 87 cases. Two methods were cut at review, both because they asserted less than their names claimed. `ErrorFormatTest` lost a fourth case that re-issued `BooksDeleteTest.deleteExistingReturns200WithEmptyBody` and asserted the same two absences. `BooksAuthorsConsistencyTest` lost a by-book case that called the Authors client only, which contradicts the definition of the `crossservice` group; its one extra provider row moved to `AuthorsByBookTest`.
 
@@ -52,9 +52,9 @@ What belongs in each module:
 
 | Module | Contents |
 |---|---|
-| `core` | Shared code: configuration, HTTP wrapper, fluent clients, generated models, and the infrastructure test classes, including the cross-service test that needs both clients. |
-| `books` | Books test classes and their JSON fixtures, including the protocol and error-format classes. |
-| `authors` | Authors test classes and their JSON fixtures. |
+| `core` | Shared code: configuration, HTTP wrapper, fluent clients, generated models, the seeded generator, and the infrastructure test classes, including the cross-service test that needs both clients. |
+| `books` | Books test classes and their data factories, including the protocol and error-format classes. |
+| `authors` | Authors test classes and their data factories. |
 
 The dependency arrow points one way. `books` and `authors` depend on `core`; `core` has no dependency on either service module. That is what keeps the reactor acyclic and lets a cross-service test live in `core`, where both clients are already visible. The rule is visible in `core/pom.xml`, which declares no internal dependency.
 
@@ -88,7 +88,7 @@ The request path:
 1. A test calls a terminal on a fluent client, for example `Api.books().get(1)` (`core/src/main/java/io/github/tasostilsi/bookstore/client/BooksApi.java`).
 2. The terminal calls `Api.request(...)` (`core/src/main/java/io/github/tasostilsi/bookstore/client/Api.java`).
 3. `Api.request` obtains a `RequestSpecification` from `ApiSpec.request()`, adds headers, content type and body when supplied, executes the request, and wraps the RestAssured `Response` in `ApiResponse`.
-4. `ApiSpec` sets the base URI, connect and read timeouts, the `AllureRestAssured` filter, and optional request/response logging. It sets no default `Content-Type`; the body-bearing client calls set that header explicitly (`core/src/main/java/io/github/tasostilsi/bookstore/client/ApiSpec.java`).
+4. `ApiSpec` sets the base URI, connect and read timeouts, redirect following off, the `AllureRestAssured` filter, and optional request/response logging. It sets no default `Content-Type`; the body-bearing client calls set that header explicitly (`core/src/main/java/io/github/tasostilsi/bookstore/client/ApiSpec.java`).
 
 The response path:
 
@@ -102,7 +102,7 @@ The response path:
 
 `ApiConfig` is the configuration boundary (`core/src/main/java/io/github/tasostilsi/bookstore/config/ApiConfig.java`). `baseUri()` reads the `api.baseUri` system property, then the `API_BASE_URI` environment variable, then the default. The timeout and logging settings read only system properties.
 
-The `Api.request` overloads are the escape hatch for requests that do not fit a resource terminal: unsupported methods, path-binding probes and custom headers. `request(String, String)` sends a bare request, `request(String, String, Map)` adds headers, and `request(String, String, String, String, Map)` adds a body and its `Content-Type`. A raw request carries no client `@Step`, so its Allure entry contains only the `HTTP exchange` step from `AllureRestAssured`. That is why the protocol tests use `Api.request` and accept the shorter report entry.
+The `Api.request` overloads are the escape hatch for requests that do not fit a resource terminal: unsupported methods, path-binding probes and custom headers. `request(String, String)` sends a bare request, `request(String, String, Map)` adds headers, `request(String, String, Object, Map)` serialises a generated model with nulls omitted, and `request(String, String, String, String, Map)` adds a raw body and its `Content-Type`. A raw request carries no client `@Step`, so its Allure entry contains only the `HTTP exchange` step from `AllureRestAssured`. That is why the protocol tests use `Api.request` and accept the shorter report entry.
 
 The ADRs on the fluent client and on the response wrapper record why there is no generic request builder and no raw RestAssured assertions in tests.
 
@@ -137,9 +137,9 @@ What each part does:
 - `@Test(groups = "contract")` makes the method selectable with `-Dgroups=contract`. Groups are declared on every method, not inherited from the class, so a renamed class cannot silently fall out of a group-based run.
 - `Api.books().get(1)` is the only HTTP call. The test does not build a request specification and does not know the base URI or path prefix.
 - `assertThat()` starts the assertion chain. Each call returns the same assertion object, so the chain reads as one statement.
-- `hasField` reads through JsonPath. `hasNonNullField` checks presence and non-null in one call.
+- `hasField` compares the JsonPath value with the expected one. `hasNonNullField` checks presence and non-null in one call; `hasInstantField` compares a timestamp by instant, because the service keeps seven fractional digits.
 - The final Hamcrest assertion checks the exact top-level key set. It is written directly because the chain does not express set equality. Hamcrest arrives transitively with RestAssured; no AssertJ dependency is declared.
-- `BOOK_1_TITLE` and `BOOK_1_PAGE_COUNT` come from `books/src/test/java/io/github/tasostilsi/bookstore/books/data/BooksData.java`. Fixtures are constants, not a shared base class.
+- `BOOK_1_TITLE` and `BOOK_1_PAGE_COUNT` come from `books/src/test/java/io/github/tasostilsi/bookstore/books/data/BooksData.java`, which also holds the factories that generate request payloads. Measured values are constants, generated payloads are factory calls, and neither needs a shared base class.
 
 Deviation and validation-gap methods add method-level labels. `BooksCreateTest.createWithEmptyObjectReturnsDefaults` shows both:
 
@@ -157,7 +157,7 @@ public void createWithEmptyObjectReturnsDefaults() {
 
 `@Feature` is repeatable. A method in two groups carries two overrides, which is what moves it into both sections of the Allure Behaviors view. A deviation whose method name does not already state the deviation also carries `@Description`, for example `BooksDeleteTest.deleteExistingReturns200WithEmptyBody`.
 
-Request bodies are raw JSON strings. The service accepts empty, malformed, partial, array and wrong-type bodies. A typed constructor would default fields and silently change the payload under test. Generated types are used only on the response side.
+Valid request bodies are built from the generated types. The service also accepts empty, malformed, partial, array and wrong-type bodies, and those stay JSON strings, because a typed constructor would default a field and silently change the payload under test. So both terminals exist: `create(Book)` and `update(int, Book)` for generated data, `create(String)` and `update(int, String)` for the payloads a model cannot express.
 
 Data providers expand a method into several cases. `BooksReadTest` has a provider for the four absent ids and one for the publish-date samples. The case count is therefore higher than the method count.
 
@@ -171,7 +171,7 @@ Three mechanisms connect a test to the report.
 
 **`AllureRestAssured`.** `ApiSpec` registers the filter on every request. It adds an `HTTP exchange` step containing the request and response attachments. This is why tests that go through `Api.request` still have a report entry even though `Api.request` itself has no `@Step`.
 
-The result files go to each module's `target/allure-results`, because Surefire sets the `allure.results.directory` system property (`pom.xml`). The `allure-testng` listener is registered by the library's service file, so no `testng.xml` and no listener wiring appear in the project. `./mvnw -B allure:aggregate` combines the module results into `target/site/allure-maven-plugin`.
+The result files go to one `target/allure-results` at the repository root, because Surefire sets the `allure.results.directory` system property to `${maven.multiModuleProjectDirectory}/target/allure-results` (`pom.xml`). One directory is what lets `allure:serve` read the whole suite; see ADR-0004. The `allure-testng` listener is registered by the library's service file, so no `testng.xml` and no listener wiring appear in the project. `./mvnw -B allure:aggregate` combines the results into `target/site/allure-maven-plugin`.
 
 Assertions do not create Allure steps. They are hard assertions executed inside the test method. A failure throws from the assertion chain, and the stack includes the test line that called it, so the failing test is identifiable.
 
@@ -208,9 +208,11 @@ To refresh the snapshot:
 scripts/refresh-openapi-spec.sh
 ```
 
-The script downloads the live document with `curl -fsSL`, validates that it is JSON with `openapi`, 12 paths and 5 schemas using `jq -e`, replaces `core/src/main/resources/spec/openapi.json`, sets the file mode, runs `./mvnw -B -pl core generate-sources`, and prints `git diff --stat` for the snapshot (`scripts/refresh-openapi-spec.sh`). The `-f` flag matters: without it an HTML error page would overwrite the tracked file. The `jq` guard rejects a truncated body or a maintenance page before the tracked file is replaced.
+The script downloads the live document with `curl -fsSL`, validates with `jq -e` that it declares `openapi`, the five paths the suite calls and the `Book` and `Author` schemas, replaces `core/src/main/resources/spec/openapi.json`, sets the file mode, runs `./mvnw -B -pl core generate-sources`, and prints `git diff --stat` for the snapshot (`scripts/refresh-openapi-spec.sh`). The `-f` flag matters: without it an HTML error page would overwrite the tracked file. The `jq` guard rejects a truncated body or a maintenance page before the tracked file is replaced, and checking the covered paths rather than the document's size lets a new upstream endpoint through.
 
-The models are a response-side oracle. Request payloads stay as JSON strings in the test fixtures. `ApiResponse.bodyAs` and `bodyAsList` deserialise into the generated types, and a field the spec does not declare makes the generated Jackson mapper ignore it unless a test enables strict handling. `ModelDeserialisationTest` copies the generated mapper and enables `FAIL_ON_UNKNOWN_PROPERTIES`, then deserialises a measured `GET /Books` payload and asserts that `publishDate` binds as `OffsetDateTime` (`core/src/test/java/io/github/tasostilsi/bookstore/model/ModelDeserialisationTest.java`).
+The models are the type target in both directions. `ApiResponse.bodyAs` and `bodyAsList` deserialise into them, and the request factories build them and serialise them through a copy of the generated mapper with nulls omitted. A field the spec does not declare makes the generated Jackson mapper ignore it unless a test enables strict handling. `ModelDeserialisationTest` copies the generated mapper and enables `FAIL_ON_UNKNOWN_PROPERTIES`, then deserialises a measured `GET /Books` payload and asserts that `publishDate` binds as `OffsetDateTime` (`core/src/test/java/io/github/tasostilsi/bookstore/model/ModelDeserialisationTest.java`).
+
+Generated payloads come from one faker per JVM, seeded from `-Ddata.seed` or a fresh random value, with the seed printed at startup and attached to each test that generated data (`core/src/main/java/io/github/tasostilsi/bookstore/data/RandomData.java`). The request mapper omits nulls because a measured `POST` with `"id":null` answers `400`, while an omitted field binds to the default (`core/src/main/java/io/github/tasostilsi/bookstore/client/ApiSpec.java`).
 
 One response does not fit the generated type. A `PUT /Books/1` with `{}` or a partial body returns `"publishDate":"0001-01-01T00:00:00"`, which has no UTC offset and cannot parse as `OffsetDateTime`. The update test asserts that value through JsonPath with `hasField`, not through `bodyAs` (`books/src/test/java/io/github/tasostilsi/bookstore/books/BooksUpdateTest.java`). This is a recorded deviation, not a workaround: the assertion states what the service returns.
 
@@ -255,12 +257,12 @@ At the time of writing, the group filters select these case counts across the re
 | Group | Cases |
 |---|---|
 | `contract` | 51 |
-| `deviation` | 20 |
+| `deviation` | 21 |
 | `validationGap` | 7 |
 | `dynamicData` | 5 |
 | `crossservice` | 2 |
 
-The rows do not sum to the 83 cases in the suite, for two reasons. Five methods carry two groups: four `{"deviation", "validationGap"}` cases between `BooksCreateTest` and `AuthorsWriteTest`, and one `{"crossservice", "deviation"}` case in `BooksAuthorsConsistencyTest`. Three `core` cases carry no group at all: the generated-model and response-wrapper infrastructure tests. Five double-counted cases less three ungrouped ones is the difference of two between the 85 the rows add up to and the 83 cases in the suite. The ADR on the test taxonomy records the alternatives and the label mapping.
+The rows do not sum to the 87 cases in the suite, for two reasons. Five methods carry two groups: four `{"deviation", "validationGap"}` cases between `BooksCreateTest` and `AuthorsWriteTest`, and one `{"crossservice", "deviation"}` case in `BooksAuthorsConsistencyTest`. Six `core` cases carry no group at all: the generated-model and response-wrapper infrastructure tests, including the three that prove the assertion chain rejects a wrong value. Five double-counted cases plus six ungrouped ones is the difference of one between the 86 the rows add up to and the 87 cases in the suite. The ADR on the test taxonomy records the alternatives and the label mapping.
 
 ## 8. Evidence discipline
 
@@ -323,7 +325,7 @@ Configuration keys (`core/src/main/java/io/github/tasostilsi/bookstore/config/Ap
 | Connect timeout | 5000 ms | `-Dapi.connectTimeoutMs=...` |
 | Socket timeout | 10000 ms | `-Dapi.socketTimeoutMs=...` |
 | Console logging | `false` | `-Dapi.logAll=true` |
-| Allure results directory | `${project.build.directory}/allure-results` | Set in `pom.xml` under Surefire `systemPropertyVariables`; change it there. |
+| Allure results directory | `${maven.multiModuleProjectDirectory}/target/allure-results` | Set in `pom.xml` under Surefire `systemPropertyVariables`; change it there. |
 | Allure report CLI | 3.17.0 | `allure.reportVersion` property in `pom.xml`. |
 
 The build uses the committed Maven wrapper, which resolves Maven 3.9.16 (`.mvn/wrapper/maven-wrapper.properties`). The compiler targets Java 17 with `<parameters>true</parameters>` (`pom.xml`). The local run used JDK 25; the planned CI uses JDK 21.
@@ -331,13 +333,12 @@ The build uses the committed Maven wrapper, which resolves Maven 3.9.16 (`.mvn/w
 Commands:
 
 ```bash
-# Run the whole reactor and produce per-module Allure results.
-./mvnw -B clean verify
+# Run the whole reactor, then combine the results into one static report. Maven re-enters the
+# root project after the last module, so the aggregate sees this run's results.
+./mvnw -B clean verify allure:aggregate
 
-# Combine the module results into one static report.
-./mvnw -B allure:aggregate
-
-# Read the report in a browser. This serves it; do not open index.html from disk.
+# Or serve the same results in a browser, from the repository root. Every module writes into
+# target/allure-results (pom.xml), so this is the whole suite; it serves until Ctrl-C.
 ./mvnw -B allure:serve
 
 # Run one module with its dependencies. -am also runs core's tests, including the live
@@ -354,6 +355,6 @@ Commands:
 ./mvnw -B -pl core generate-sources
 ```
 
-`clean` matters locally: `allure-results` accumulates across runs, so without it the report shows tests that no longer exist. `allure:serve` is the supported way to read the report because Allure loads its data over XHR from relative paths. Opening `target/site/allure-maven-plugin/index.html` from disk is not the documented path.
+`clean` matters locally: `allure-results` accumulates across runs, so without it the report shows tests that no longer exist. The report must be served because Allure loads its data over XHR from relative paths; `allure:serve` does that for the root `target/allure-results`, and `./.allure/bin/allure open target/site/allure-maven-plugin` does it for the aggregated static report. Opening `index.html` from disk is not the documented path.
 
 `scripts/refresh-openapi-spec.sh` is the only command that rewrites a tracked file. Run it deliberately, review the snapshot diff, and commit the new snapshot if the generated models still compile.

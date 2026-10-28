@@ -2,6 +2,7 @@ package io.github.tasostilsi.bookstore.client;
 
 import io.github.tasostilsi.bookstore.config.ApiPaths;
 import io.github.tasostilsi.bookstore.http.ApiResponse;
+import io.github.tasostilsi.bookstore.model.Author;
 import io.qameta.allure.Step;
 
 public final class AuthorsApi {
@@ -22,13 +23,13 @@ public final class AuthorsApi {
     }
 
     @Step("POST /Authors")
-    public ApiResponse create(String body) {
-        return Api.request("POST", ApiPaths.AUTHORS, body, ApiSpec.JSON, null);
+    public ApiResponse create(Author author) {
+        return Api.request("POST", ApiPaths.AUTHORS, author, null);
     }
 
     @Step("PUT /Authors/{id}")
-    public ApiResponse update(int id, String body) {
-        return Api.request("PUT", ApiPaths.author(id), body, ApiSpec.JSON, null);
+    public ApiResponse update(int id, Author author) {
+        return Api.request("PUT", ApiPaths.author(id), author, null);
     }
 
     @Step("DELETE /Authors/{id}")
