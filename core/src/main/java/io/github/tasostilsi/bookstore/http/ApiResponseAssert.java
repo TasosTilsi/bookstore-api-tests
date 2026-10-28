@@ -1,10 +1,16 @@
 package io.github.tasostilsi.bookstore.http;
 
 import io.restassured.path.json.JsonPath;
+import org.hamcrest.Matcher;
+import org.hamcrest.Matchers;
 
 import java.time.OffsetDateTime;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
@@ -21,6 +27,20 @@ public final class ApiResponseAssert {
 
     public ApiResponseAssert hasStatus(int status) {
         assertThat(response.status(), is(status));
+        return this;
+    }
+
+    /** Names a precondition, so a fixture failure does not read as the assertion the test exists to make. */
+    public ApiResponseAssert hasStatus(int status, String because) {
+        assertThat(because, response.status(), is(status));
+        return this;
+    }
+
+    /** Only for statuses RFC 9110 allows as alternatives on the same outcome, such as 200 or 204 on PUT. */
+    public ApiResponseAssert hasStatusOneOf(int... allowed) {
+        List<Matcher<? super Integer>> matchers = Arrays.stream(allowed).mapToObj(Matchers::is)
+                .collect(Collectors.toList());
+        assertThat(response.status(), anyOf(matchers));
         return this;
     }
 

@@ -1,5 +1,6 @@
 package io.github.tasostilsi.bookstore.books;
 
+import io.github.tasostilsi.bookstore.books.data.BooksData;
 import io.github.tasostilsi.bookstore.client.Api;
 import io.github.tasostilsi.bookstore.config.ApiPaths;
 import io.github.tasostilsi.bookstore.http.ApiResponse;
@@ -11,7 +12,6 @@ import io.qameta.allure.Severity;
 import io.qameta.allure.SeverityLevel;
 import org.testng.annotations.Test;
 
-import static io.github.tasostilsi.bookstore.books.data.BooksData.BOOK_1_TITLE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
@@ -23,26 +23,39 @@ import static org.hamcrest.Matchers.not;
 @Link(name = "OpenAPI specification", url = "https://fakerestapi.azurewebsites.net/swagger/v1/swagger.json")
 public class BooksDeleteTest {
 
-    @Test(groups = "deviation")
-    @Feature("Contract deviations")
-    @Description("the deviation: a successful DELETE returns 200 with a zero-byte body and no Content-Type header,"
-            + " where REST expects 204 when no representation is returned")
-    public void deleteExistingReturns200WithEmptyBody() {
-        Api.books().delete(1).assertThat().hasStatus(200).hasEmptyBody().hasNoContentType();
+    @Test(groups = {"contract", "defect"})
+    @Feature("Contract defects")
+    @Description("RFC 9110 9.3.5: a successful DELETE answers 204 with no body")
+    public void deleteExistingReturns204WithNoBody() {
+        ApiResponse created = Api.books().create(BooksData.book());
+        created.assertThat()
+                .hasStatus(201, "precondition: a correct service stores the book this test deletes and returns its Location")
+                .hasHeader("Location");
+        Api.books().delete(created.locationId()).assertThat()
+                .hasStatus(204).hasEmptyBody().hasNoContentType();
     }
 
-    @Test(groups = "deviation")
-    @Feature("Contract deviations")
-    public void deleteDoesNotRemoveResource() {
-        Api.books().delete(1).assertThat().hasStatus(200).hasEmptyBody();
-        // DELETE is a no-op, so this assertion does not depend on the delete having changed state.
-        Api.books().get(1).assertThat().hasStatus(200).hasField("id", 1).hasField("title", BOOK_1_TITLE);
+    @Test(groups = {"contract", "defect"})
+    @Feature("Contract defects")
+    @Description("RFC 9110 9.3.5: the resource is gone afterwards, so a later GET and a second DELETE are 404")
+    public void deleteRemovesResourceAndLaterGetReturns404() {
+        ApiResponse created = Api.books().create(BooksData.book());
+        created.assertThat()
+                .hasStatus(201, "precondition: a correct service stores the book this test deletes and returns its Location")
+                .hasHeader("Location");
+        int id = created.locationId();
+
+        Api.books().get(id).assertThat().hasStatus(200).hasField("id", id);
+        Api.books().delete(id).assertThat().hasStatus(204);
+        Api.books().get(id).assertThat().hasStatus(404);
+        Api.books().delete(id).assertThat().hasStatus(404);
     }
 
-    @Test(groups = "deviation")
-    @Feature("Contract deviations")
-    public void deleteSucceedsForAbsentId() {
-        Api.books().delete(99999).assertThat().hasStatus(200).hasEmptyBody().hasNoContentType();
+    @Test(groups = {"contract", "defect"})
+    @Feature("Contract defects")
+    @Description("RFC 9110 15.5.5: deleting an absent resource answers 404")
+    public void deleteAbsentIdReturns404() {
+        Api.books().delete(99999).assertThat().hasStatus(404);
     }
 
     @Test(groups = "contract")

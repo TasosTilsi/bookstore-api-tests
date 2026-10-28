@@ -51,7 +51,8 @@ public class AuthorsByBookTest {
 
     @DataProvider
     public Object[][] outOfRangeBookIds() {
-        return new Object[][]{{0}, {-1}, {201}};
+        // 201 is not used: a corrected service assigns the next sequential book id, which can be 201.
+        return new Object[][]{{0}, {-1}, {99999}};
     }
 
     @Test(groups = "contract")

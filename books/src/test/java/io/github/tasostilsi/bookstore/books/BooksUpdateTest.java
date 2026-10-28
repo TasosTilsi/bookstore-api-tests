@@ -12,11 +12,9 @@ import io.qameta.allure.Severity;
 import io.qameta.allure.SeverityLevel;
 import org.testng.annotations.Test;
 
-import static io.github.tasostilsi.bookstore.books.data.BooksData.BOOK_1_TITLE;
 import static io.github.tasostilsi.bookstore.books.data.BooksData.EMPTY_BODY;
 import static io.github.tasostilsi.bookstore.books.data.BooksData.EMPTY_OBJECT;
 import static io.github.tasostilsi.bookstore.books.data.BooksData.MALFORMED_BODY;
-import static io.github.tasostilsi.bookstore.books.data.BooksData.ZERO_DATE_DEFAULT;
 
 @Epic("Bookstore API")
 @Feature("Books update")
@@ -24,75 +22,88 @@ import static io.github.tasostilsi.bookstore.books.data.BooksData.ZERO_DATE_DEFA
 @Link(name = "OpenAPI specification", url = "https://fakerestapi.azurewebsites.net/swagger/v1/swagger.json")
 public class BooksUpdateTest {
 
-    @Test(groups = "contract")
-    public void updateExistingBookEchoesPayload() {
-        Book book = BooksData.book(1);
-        ApiResponse r = Api.books().update(1, book);
-        r.assertThat().hasStatus(200).isVersionedJson().hasField("id", 1)
-                .hasField("title", book.getTitle()).hasField("pageCount", book.getPageCount())
-                .hasField("description", book.getDescription()).hasField("excerpt", book.getExcerpt())
-                .hasInstantField("publishDate", book.getPublishDate());
+    @Test(groups = {"contract", "defect"})
+    @Feature("Contract defects")
+    @Description("RFC 9110 9.3.4: a PUT to an existing resource answers 200 or 204")
+    public void updateExistingBookReturns200Or204() {
+        ApiResponse created = Api.books().create(BooksData.book());
+        created.assertThat()
+                .hasStatus(201, "precondition: a correct service stores the book this test replaces and returns its Location")
+                .hasHeader("Location");
+        Api.books().update(created.locationId(), BooksData.book(created.locationId()))
+                .assertThat().hasStatusOneOf(200, 204);
     }
 
-    @Test(groups = "deviation",
-            description = "the path id is ignored: the echoed id is the body id, defaulting to 0 when the body omits it")
-    @Feature("Contract deviations")
-    public void updateSucceedsForAbsentId() {
-        Book book = BooksData.bookWithoutId();
-        Api.books().update(99999, book).assertThat()
-                .hasStatus(200).isVersionedJson().hasField("id", 0)
-                .hasField("title", book.getTitle()).hasField("pageCount", book.getPageCount())
-                .hasField("description", book.getDescription()).hasField("excerpt", book.getExcerpt())
-                .hasInstantField("publishDate", book.getPublishDate());
+    @Test(groups = {"contract", "defect"})
+    @Feature("Contract defects")
+    @Description("RFC 9110 9.3.4: a PUT to an id with no current representation creates it and answers 201")
+    public void updateAbsentIdCreates201WithLocation() {
+        Book book = BooksData.book();
+        ApiResponse created = Api.books().update(book.getId(), book);
+        created.assertThat().hasStatus(201).hasHeader("Location");
+        Api.books().get(created.locationId()).assertThat().hasStatus(200)
+                .hasField("id", created.locationId()).hasField("title", book.getTitle());
     }
 
-    @Test(groups = "deviation")
-    @Feature("Contract deviations")
-    @Description("the echoed 200 is the only effect: a later GET still returns the stored book")
-    public void updateDoesNotPersist() {
-        Api.books().update(1, BooksData.book(1)).assertThat().hasStatus(200);
-        Api.books().get(1).assertThat().hasStatus(200).hasField("title", BOOK_1_TITLE);
+    @Test(groups = {"contract", "defect"})
+    @Feature("Contract defects")
+    @Description("RFC 9110 9.3.4: the replacement is what a later GET returns")
+    public void updateIsVisibleOnNextRead() {
+        Book original = BooksData.book();
+        ApiResponse created = Api.books().create(original);
+        created.assertThat()
+                .hasStatus(201, "precondition: a correct service stores the book this test replaces and returns its Location")
+                .hasHeader("Location");
+        int id = created.locationId();
+
+        Book replacement = BooksData.book(id).title("replaced-" + original.getTitle());
+        Api.books().update(id, replacement).assertThat().hasStatusOneOf(200, 204);
+        Api.books().get(id).assertThat().hasStatus(200)
+                .hasField("id", id).hasField("title", replacement.getTitle());
+    }
+
+    @Test(groups = {"contract", "defect"})
+    @Feature("Contract defects")
+    @Description("the resource is identified by its URI, so replacing it with {} keeps the path id")
+    public void updateWithEmptyObjectKeepsPathId() {
+        ApiResponse created = Api.books().create(BooksData.book());
+        created.assertThat()
+                .hasStatus(201, "precondition: a correct service stores the book this test replaces and returns its Location")
+                .hasHeader("Location");
+        int id = created.locationId();
+
+        Api.books().update(id, EMPTY_OBJECT).assertThat().hasStatusOneOf(200, 204);
+        Api.books().get(id).assertThat().hasStatus(200).hasField("id", id);
+    }
+
+    @Test(groups = {"contract", "defect"})
+    @Feature("Contract defects")
+    @Description("RFC 9110 9.3.4: PUT replaces, so a field omitted from the request is cleared")
+    public void updateReplacesOmittedFieldsWithNull() {
+        ApiResponse created = Api.books().create(BooksData.book());
+        created.assertThat()
+                .hasStatus(201, "precondition: a correct service stores the book this test replaces and returns its Location")
+                .hasHeader("Location");
+        int id = created.locationId();
+
+        Book replacement = BooksData.book(id).description(null).excerpt(null);
+        Api.books().update(id, replacement).assertThat().hasStatusOneOf(200, 204);
+        Api.books().get(id).assertThat().hasStatus(200)
+                .hasField("id", id).hasNullField("description").hasNullField("excerpt");
+    }
+
+    @Test(groups = {"contract", "defect"})
+    @Feature("Contract defects")
+    @Description("RFC 9110 9.3.4: a body id that disagrees with the path is an inconsistent representation (409)")
+    public void updateWithMismatchedBodyIdReturns409() {
+        // A correct service rejects before mutating, so seed book 1 is safe to address here.
+        Api.books().update(1, BooksData.book(7)).assertThat().hasStatus(409);
     }
 
     @Test(groups = "contract")
     public void updateWithZeroLengthBodyReturns400() {
         Api.books().update(1, EMPTY_BODY).assertThat().hasStatus(400).isProblemJsonWithoutVersion()
                 .hasNonNullField("errors['']");
-    }
-
-    @Test(groups = "deviation")
-    @Feature("Contract deviations")
-    @Description("the deviation: /Books/1 answers with id 0 instead of the resource's own id."
-            + " publishDate is read through JsonPath because \"0001-01-01T00:00:00\" has no offset,"
-            + " so the generated OffsetDateTime cannot parse it")
-    public void updateWithEmptyObjectResetsFields() {
-        Api.books().update(1, EMPTY_OBJECT).assertThat().hasStatus(200).isVersionedJson()
-                .hasField("id", 0).hasNullField("title").hasField("pageCount", 0)
-                .hasField("publishDate", ZERO_DATE_DEFAULT);
-    }
-
-    @Test(groups = "deviation")
-    @Feature("Contract deviations")
-    @Description("an omitted field is replaced by null, so this is a replace and not a merge")
-    public void updateNullsOmittedFields() {
-        // A merge with book 1 would keep its description, excerpt and publishDate; a replace resets them.
-        Book book = BooksData.book(1).description(null).excerpt(null).publishDate(null);
-        Api.books().update(1, book).assertThat()
-                .hasStatus(200).isVersionedJson().hasField("id", 1)
-                .hasField("title", book.getTitle()).hasField("pageCount", book.getPageCount())
-                .hasNullField("description").hasNullField("excerpt")
-                .hasField("publishDate", ZERO_DATE_DEFAULT);
-    }
-
-    @Test(groups = "deviation")
-    @Feature("Contract deviations")
-    public void updateUsesBodyIdNotPathId() {
-        Book book = BooksData.book(7);
-        Api.books().update(1, book).assertThat()
-                .hasStatus(200).isVersionedJson().hasField("id", 7)
-                .hasField("title", book.getTitle()).hasField("pageCount", book.getPageCount())
-                .hasField("description", book.getDescription()).hasField("excerpt", book.getExcerpt())
-                .hasInstantField("publishDate", book.getPublishDate());
     }
 
     @Test(groups = "contract")

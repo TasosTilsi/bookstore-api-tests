@@ -10,6 +10,7 @@ import org.testng.annotations.Test;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.is;
 import static org.testng.Assert.expectThrows;
 
 @Epic("Bookstore API")
@@ -18,7 +19,7 @@ import static org.testng.Assert.expectThrows;
 public class ApiResponseEdgeTest {
 
     // Built locally rather than fetched: what is under test is the wrapper's handling of a shape,
-    // not the service's. The live shapes are asserted by BooksDeleteTest, for both the 200 with no
+    // not the service's. The live shapes are asserted by BooksDeleteTest, for both the 204 with no
     // body and the 405 with no Content-Type.
     private static ApiResponse response(int status) {
         return ApiResponse.of(new ResponseBuilder().setStatusCode(status).build());
@@ -51,6 +52,26 @@ public class ApiResponseEdgeTest {
     @Test(description = "hasStatus accepts the measured status and nothing else")
     public void hasStatusFailsWhenStatusDiffers() {
         expectThrows(AssertionError.class, () -> response(201).assertThat().hasStatus(200));
+    }
+
+    @Test(description = "hasStatusOneOf accepts the allowed set and rejects a status outside it")
+    public void hasStatusOneOfAcceptsOnlyTheAllowedSet() {
+        response(204).assertThat().hasStatusOneOf(200, 204);
+        expectThrows(AssertionError.class, () -> response(200).assertThat().hasStatusOneOf(201, 204));
+    }
+
+    @Test(description = "locationId reads the last path segment of the Location header")
+    public void locationIdReturnsLastPathSegment() {
+        ApiResponse created = ApiResponse.of(new ResponseBuilder().setStatusCode(201)
+                .setHeader("Location", "/api/v1/Books/42").build());
+        assertThat(created.locationId(), is(42));
+    }
+
+    @Test(description = "locationId fails loudly when a 2xx carries no Location")
+    public void locationIdRejectsAbsentHeader() {
+        IllegalStateException thrown = expectThrows(IllegalStateException.class,
+                () -> response(200).locationId());
+        assertThat(thrown.getMessage(), containsString("Location"));
     }
 
     @Test(description = "hasNullField fails on an absent key rather than passing on a null one")

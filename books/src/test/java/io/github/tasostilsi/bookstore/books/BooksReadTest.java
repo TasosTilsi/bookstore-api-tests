@@ -41,12 +41,14 @@ public class BooksReadTest {
         Api.books().list().assertThat().hasStatus(200).isVersionedJson();
     }
 
-    @Test(groups = "contract")
+    @Test(groups = "regression")
+    @Feature("Measured behaviour")
     public void listReturnsExactlyTwoHundredBooks() {
         Api.books().list().assertThat().hasBodySize(200);
     }
 
-    @Test(groups = "contract")
+    @Test(groups = "regression")
+    @Feature("Measured behaviour")
     public void listIdsAreContiguousAscendingFromOne() {
         List<Integer> ids = Api.books().list().json().getList("id");
         assertEquals(ids, IntStream.rangeClosed(1, 200).boxed().toList());
@@ -75,7 +77,8 @@ public class BooksReadTest {
         assertNotNull(book.getPublishDate());
     }
 
-    @Test(groups = "contract")
+    @Test(groups = "regression")
+    @Feature("Measured behaviour")
     public void getBookAtUpperBoundReturnsIt() {
         Api.books().get(MAX_BOOK_ID).assertThat().hasStatus(200).hasField("id", MAX_BOOK_ID);
     }
@@ -87,17 +90,20 @@ public class BooksReadTest {
 
     @DataProvider
     public Object[][] absentIds() {
-        return new Object[][]{{0}, {-1}, {201}, {99999}};
+        // 201 is not used: a corrected service assigns the next sequential id, which can be 201.
+        return new Object[][]{{0}, {-1}, {99999}};
     }
 
-    @Test(groups = "contract", description = "a path segment above int32 is rejected by the binder, not by the route")
+    @Test(groups = "regression", description = "a path segment above int32 is rejected by the binder, not by the route")
+    @Feature("Measured behaviour")
     public void int32OverflowIdReturns400() {
         Api.request("GET", ApiPaths.book("2147483648")).assertThat()
                 .hasStatus(400).isProblemJsonWithoutVersion()
                 .hasNonNullField("errors.id");
     }
 
-    @Test(groups = "contract", description = "GET publishDate carries a UTC offset")
+    @Test(groups = "regression", description = "GET publishDate carries a UTC offset")
+    @Feature("Measured behaviour")
     public void publishDateIsParsableOffsetDateTime() {
         ApiResponse r = Api.books().get(1);
         r.assertThat().hasStatus(200);

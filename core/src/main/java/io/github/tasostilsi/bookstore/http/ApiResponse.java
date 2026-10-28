@@ -30,6 +30,15 @@ public final class ApiResponse {
         return response.getHeader("Content-Type");
     }
 
+    // A created resource is identified by the last segment of its Location header.
+    public int locationId() {
+        String location = header("Location");
+        if (location == null) {
+            throw new IllegalStateException("no Location header on " + status());
+        }
+        return Integer.parseInt(location.substring(location.lastIndexOf('/') + 1));
+    }
+
     public String body() {
         return response.getBody().asString();
     }

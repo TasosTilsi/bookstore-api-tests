@@ -2,8 +2,10 @@ package io.github.tasostilsi.bookstore.crossservice;
 
 import io.github.tasostilsi.bookstore.client.Api;
 import io.github.tasostilsi.bookstore.data.RandomData;
+import io.github.tasostilsi.bookstore.http.ApiResponse;
 import io.github.tasostilsi.bookstore.model.Author;
 import io.github.tasostilsi.bookstore.model.Book;
+import io.qameta.allure.Description;
 import io.qameta.allure.Epic;
 import io.qameta.allure.Feature;
 import io.qameta.allure.Link;
@@ -14,6 +16,8 @@ import org.testng.annotations.Test;
 import java.util.HashSet;
 import java.util.List;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.hasItem;
 import static org.testng.Assert.assertEquals;
 
 @Epic("Bookstore API")
@@ -22,7 +26,7 @@ import static org.testng.Assert.assertEquals;
 @Link(name = "OpenAPI specification", url = "https://fakerestapi.azurewebsites.net/swagger/v1/swagger.json")
 public class BooksAuthorsConsistencyTest {
 
-    // Above every id the service serves, and distinct from each other, so both GETs must answer 404.
+    // Sent ids, not asserted ids: a correct service assigns the identity and returns it in Location.
     private static final int UNSTORED_BOOK_ID = 9001;
     private static final int UNSTORED_AUTHOR_ID = 9002;
 
@@ -36,23 +40,33 @@ public class BooksAuthorsConsistencyTest {
         assertEquals(new HashSet<>(grouped), new HashSet<>(bookIds));
     }
 
-    @Test(groups = {"crossservice", "deviation"})
-    @Feature("Contract deviations")
-    public void statelessnessSpansBothResources() {
+    @Test(groups = {"crossservice", "contract", "defect"})
+    @Feature("Contract defects")
+    @Description("a created book and the author that references it are both readable afterwards")
+    public void createdResourcesAreVisibleAcrossBothResources() {
         Book book = new Book().id(UNSTORED_BOOK_ID).title(RandomData.faker().book().title());
-        Author author = new Author().id(UNSTORED_AUTHOR_ID).idBook(UNSTORED_BOOK_ID)
+        Author author = new Author().id(UNSTORED_AUTHOR_ID)
                 .firstName(RandomData.faker().name().firstName())
                 .lastName(RandomData.faker().name().lastName());
         RandomData.attachSeed();
 
-        Api.books().create(book).assertThat()
-                .hasStatus(200).hasField("id", UNSTORED_BOOK_ID).hasField("title", book.getTitle());
-        Api.authors().create(author).assertThat().hasStatus(200)
-                .hasField("id", UNSTORED_AUTHOR_ID).hasField("idBook", UNSTORED_BOOK_ID)
-                .hasField("firstName", author.getFirstName())
-                .hasField("lastName", author.getLastName());
+        ApiResponse bookCreated = Api.books().create(book);
+        bookCreated.assertThat()
+                .hasStatus(201, "precondition: a correct service stores the book it creates and returns its Location")
+                .hasHeader("Location");
+        int bookId = bookCreated.locationId();
 
-        Api.books().get(UNSTORED_BOOK_ID).assertThat().hasStatus(404);
-        Api.authors().get(UNSTORED_AUTHOR_ID).assertThat().hasStatus(404);
+        // The foreign key comes from the Location, not from the id that was sent: the server owns identity.
+        author.idBook(bookId);
+        ApiResponse authorCreated = Api.authors().create(author);
+        authorCreated.assertThat()
+                .hasStatus(201, "precondition: a correct service stores the author it creates and returns its Location")
+                .hasHeader("Location");
+        int authorId = authorCreated.locationId();
+
+        Api.books().get(bookId).assertThat().hasStatus(200).hasField("id", bookId);
+        Api.authors().get(authorId).assertThat().hasStatus(200).hasField("id", authorId)
+                .hasField("idBook", bookId);
+        assertThat(Api.authors().byBook(bookId).json().getList("id"), hasItem(authorId));
     }
 }

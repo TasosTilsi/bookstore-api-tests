@@ -14,7 +14,6 @@ public final class BooksData {
     public static final String BOOK_1_TITLE = "Book 1";
     public static final int BOOK_1_PAGE_COUNT = 100;
     public static final int MAX_BOOK_ID = 200;
-    public static final String ZERO_DATE_DEFAULT = "0001-01-01T00:00:00";
 
     public static final String EMPTY_OBJECT = "{}";
     public static final String EMPTY_BODY = "";

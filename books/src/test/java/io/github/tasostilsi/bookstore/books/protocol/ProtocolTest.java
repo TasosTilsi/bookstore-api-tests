@@ -36,8 +36,7 @@ public class ProtocolTest {
     }
 
     @Test(groups = "contract")
-    @Description("A path that matches no endpoint answers 404 with an empty body and no Content-Type, "
-            + "while the service's own 404 for a missing book answers problem+json carrying v=1.0")
+    @Description("A path that matches no endpoint answers 404 with an empty body and no Content-Type")
     public void unknownRouteReturns404WithEmptyBody() {
         Api.request("GET", ApiPaths.BASE_PATH + "/Nope").assertThat()
                 .hasStatus(404).hasNoContentType().hasEmptyBody();
