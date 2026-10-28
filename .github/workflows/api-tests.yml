@@ -32,11 +32,13 @@ jobs:
             if [ "$code" = "200" ]; then exit 0; fi
             sleep 5
           done
-          echo "the demo service is not answering 200; failing before the suite so a dead host does not read as 87 contract failures"
+          echo "the demo service is not answering 200; failing before the suite so a dead host does not read as 91 contract failures"
           exit 1
 
       - name: Run the reactor
-        run: ./mvnw -B clean verify
+        # Failures are ignored here so Maven does not stop at the first failing module; the failure
+        # is raised after the report is built, from the results themselves.
+        run: ./mvnw -B -Dmaven.test.failure.ignore=true clean verify
 
       - name: Aggregate the Allure report
         if: always()
@@ -49,10 +51,10 @@ jobs:
           files=(target/allure-results/*-result.json)
           echo "allure results: ${#files[@]}"
           # allure:aggregate warns about a missing module directory and still exits 0, so a partial
-          # run would publish a report of whatever it happened to find. 87 is the reactor total;
+          # run would publish a report of whatever it happened to find. 91 is the reactor total;
           # fewer means a module did not run.
-          if [ ${#files[@]} -lt 87 ]; then
-            echo "expected at least 87 results, found ${#files[@]}"
+          if [ ${#files[@]} -lt 91 ]; then
+            echo "expected at least 91 results, found ${#files[@]}"
             exit 1
           fi
 
@@ -65,6 +67,20 @@ jobs:
           # A named step, not a non-empty array: AllureRestAssured adds its own "HTTP exchange"
           # step, so a count alone stays green with the AspectJ weaver broken.
           jq -e -s '[.[] | .steps // [] | .[] | .name] | index("GET /Books") != null' "${files[@]}" >/dev/null
+
+      - name: Fail on contract defects
+        if: always()
+        run: |
+          shopt -s nullglob
+          files=(target/allure-results/*-result.json)
+          [ ${#files[@]} -gt 0 ] || { echo "no Allure result files"; exit 1; }
+          failed=$(jq -r 'select(.status == "failed") | .fullName' "${files[@]}" | wc -l)
+          echo "failed tests: ${failed}"
+          if [ "${failed}" -gt 0 ]; then
+            jq -r 'select(.status == "failed") | "DEFECT " + .fullName' "${files[@]}" | sort
+            echo "::error::${failed} contract tests failed against the demo; this run is the defect report"
+            exit 1
+          fi
 
       - uses: mikepenz/action-junit-report@v5
         if: always()
@@ -91,7 +107,8 @@ jobs:
 
   deploy:
     needs: test
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    # The failing report is the deliverable, so publish even when the test job fails.
+    if: always() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     concurrency:
