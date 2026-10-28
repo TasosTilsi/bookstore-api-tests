@@ -4,6 +4,8 @@ A sample REST API test suite for the public [FakeRestAPI](https://fakerestapi.az
 
 The suite asserts what a correct REST API is required to do, not what this demo happens to do. The demo is stateless: `POST` and `PUT` echo the payload instead of storing it, and `DELETE` removes nothing. Those are defects, so the tests that exercise them fail, and the failure list under [Defects](#defects) is the report. The suite is red by design.
 
+The generated Allure report from the latest run is published at [tasostilsi.github.io/bookstore-api-tests](https://tasostilsi.github.io/bookstore-api-tests/).
+
 ## Quick start
 
 ```bash
